@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
-import { Lock, Globe, Phone } from 'lucide-react'
+import { Lock, Globe, Phone, Home, Eye, EyeOff } from 'lucide-react'
 import { SpiroLogo } from '../../components/ui/SpiroLogo'
 
 export function LoginPage() {
@@ -12,6 +12,7 @@ export function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
   const { login } = useAuth()
   const navigate = useNavigate()
 
@@ -39,9 +40,17 @@ export function LoginPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary via-primary-600 to-primary-800 flex items-center justify-center p-4">
+      {/* Top-left: Home navigation indicator */}
       <div className="absolute top-4 left-4">
-        <Link to="/">
-          <SpiroLogo size="sm" />
+        <Link
+          to="/"
+          className="inline-flex items-center gap-2 text-white/80 hover:text-white transition-colors text-sm font-medium group"
+          aria-label="Return to home page"
+        >
+          <span className="flex items-center justify-center w-8 h-8 rounded-full bg-white/10 group-hover:bg-white/20 transition-colors">
+            <Home className="w-4 h-4" />
+          </span>
+          <span className="hidden sm:block">Home</span>
         </Link>
       </div>
 
@@ -61,9 +70,9 @@ export function LoginPage() {
         {/* Login Card */}
         <div className="bg-white rounded-2xl shadow-2xl p-8">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            {/* <h1 className="text-3xl font-bold text-gray-900 mb-2">
               Login
-            </h1>
+            </h1> */}
             {/* <p className="text-gray-600">
               At Spiro, we are dedicated to enhancing livelihoods through sustainable energy by
               leading the large-scale electrification of mobility across Africa.
@@ -99,13 +108,21 @@ export function LoginPage() {
                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <Input
                   id="password"
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   placeholder="Enter Password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 pr-10"
                   required
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
             </div>
 

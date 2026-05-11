@@ -153,31 +153,63 @@ export function LandingPage() {
               </div>
             </div>
 
-            {/* Right – Hero Image */}
+            {/* Right – Hero Image: Circular Medallion */}
             <div className="hidden lg:flex items-center justify-center animate-fade-right delay-300">
-              <div className="relative">
-                {/* Glow ring */}
-                <div className="absolute inset-0 rounded-3xl bg-accent-500/20 blur-3xl scale-110" />
-                {/* Floating card */}
-                <div className="relative w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl border border-white/10 animate-float">
+              <div className="relative" style={{ width: 500, height: 500 }}>
+
+                {/* Layer 1 – Diffuse outer glow */}
+                <div className="absolute inset-0 rounded-full blur-[72px] scale-125"
+                  style={{ background: 'radial-gradient(circle, rgba(255,229,0,0.25) 0%, rgba(71,87,193,0.3) 60%, transparent 100%)' }}
+                />
+
+                {/* Layer 2 – Slow-spinning dashed orbit ring */}
+                <div
+                  className="absolute rounded-full border-2 border-dashed border-white/20 animate-spin"
+                  style={{ inset: -24, animationDuration: '24s' }}
+                />
+
+                {/* Layer 3 – Static accent ring */}
+                <div
+                  className="absolute rounded-full border border-accent-500/40"
+                  style={{ inset: -8 }}
+                />
+
+                {/* Layer 4 – Main image clipped to circle */}
+                <div
+                  className="absolute inset-0 rounded-full overflow-hidden ring-4 ring-white/10"
+                  style={{ boxShadow: '0 12px 80px rgba(71,87,193,0.55), 0 0 0 1px rgba(255,255,255,0.08)' }}
+                >
                   <img
-                    src="/hero.png"
-                    alt="Electric motorcycle at Spiro battery swap station"
-                    className="w-full h-auto object-cover"
+                    src="/spiro-motorcycle.png"
+                    alt="Spiro electric motorcycle at Smart Energy Network station"
+                    className="w-full h-full object-cover object-center scale-105"
                     loading="eager"
                   />
-                  {/* Overlay badge */}
-                  <div className="absolute bottom-6 left-6 right-6 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 p-4 flex items-center gap-4">
-                    <div className="w-10 h-10 bg-accent-500 rounded-full flex items-center justify-center shrink-0">
-                      <Battery className="w-5 h-5 text-primary" />
-                    </div>
-                    <div>
-                      <div className="text-white font-semibold text-sm">Battery Swapped!</div>
-                      <div className="text-gray-300 text-xs">Fully charged — ready to ride</div>
-                    </div>
-                    <div className="ml-auto text-accent-400 font-bold text-sm">1:47</div>
-                  </div>
+                  {/* Inner vignette for depth */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-primary/50 via-transparent to-transparent pointer-events-none" />
                 </div>
+
+                {/* Floating battery badge – sits outside the clip, overlapping bottom */}
+                <div
+                  className="absolute bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 p-3 flex items-center gap-3 shadow-2xl"
+                  style={{ bottom: -20, left: '50%', transform: 'translateX(-50%)', minWidth: 220 }}
+                >
+                  <div className="w-9 h-9 bg-accent-500 rounded-full flex items-center justify-center shrink-0">
+                    <Battery className="w-4 h-4 text-primary" />
+                  </div>
+                  <div>
+                    <div className="text-white font-semibold text-sm">Battery Swapped!</div>
+                    <div className="text-gray-300 text-xs">Fully charged — ready to ride</div>
+                  </div>
+                  <div className="ml-auto text-accent-400 font-bold text-sm">1:47</div>
+                </div>
+
+                {/* Decorative pulsing accent dots */}
+                <div className="absolute top-8 right-6 w-4 h-4 bg-accent-500 rounded-full animate-pulse opacity-90" />
+                <div className="absolute top-20 right-0 w-2.5 h-2.5 bg-white/50 rounded-full animate-pulse" style={{ animationDelay: '0.5s' }} />
+                <div className="absolute bottom-32 left-0 w-3 h-3 bg-accent-400/60 rounded-full animate-pulse" style={{ animationDelay: '0.3s' }} />
+                <div className="absolute top-4 left-24 w-2 h-2 bg-white/30 rounded-full animate-pulse" style={{ animationDelay: '0.8s' }} />
+
               </div>
             </div>
           </div>

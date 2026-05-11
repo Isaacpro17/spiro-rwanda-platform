@@ -16,9 +16,9 @@ import {
   Building2,
   Globe,
   ArrowRight,
+  ArrowLeft,
   CheckCircle2,
 } from 'lucide-react'
-import { SpiroLogo } from '../../components/ui/SpiroLogo'
 
 type Role = 'rider' | 'operator' | 'technician'
 
@@ -109,11 +109,19 @@ export function RegisterPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary via-primary-600 to-primary-800 flex items-center justify-center p-4 py-12">
-      {/* Logo */}
+      {/* Top-left: Back navigation */}
       <div className="absolute top-4 left-4">
-        <Link to="/">
-          <SpiroLogo size="sm" />
-        </Link>
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          className="inline-flex items-center gap-2 text-white/80 hover:text-white transition-colors text-sm font-medium group"
+          aria-label="Go back"
+        >
+          <span className="flex items-center justify-center w-8 h-8 rounded-full bg-white/10 group-hover:bg-white/20 transition-colors">
+            <ArrowLeft className="w-4 h-4" />
+          </span>
+          <span className="hidden sm:block">Back</span>
+        </button>
       </div>
 
       <div className="absolute top-4 right-4">
