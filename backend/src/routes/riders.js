@@ -16,6 +16,11 @@ router.use(requireRole('rider'));
 
 router.get('/profile', riderController.getProfile);
 router.put('/profile', riderController.updateProfile);
+router.put('/change-password', [
+  body('currentPassword').notEmpty().withMessage('Current password is required'),
+  body('newPassword').isLength({ min: 8 }).withMessage('New password must be at least 8 characters'),
+  body('confirmPassword').notEmpty().withMessage('Confirm password is required'),
+], riderController.changePassword);
 router.get('/history', riderController.getHistory);
 router.post('/loyalty/redeem',
   [body('points').isInt({ min: 1 }).withMessage('Points must be a positive integer')],

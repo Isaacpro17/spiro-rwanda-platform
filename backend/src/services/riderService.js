@@ -29,20 +29,20 @@ export async function getRiderProfile(userId) {
 }
 
 /**
- * Updates rider profile fields.
+ * Updates rider profile fields (both User and RiderProfile tables).
  * @param {string} userId
  * @param {Object} updates
  * @returns {Promise<Object>}
  */
 export async function updateRiderProfile(userId, updates) {
-  const allowedUserFields = ['fullName', 'language', 'emergencyContact'];
-  const allowedProfileFields = ['vehicleRegistration'];
+  const allowedUserFields    = ['fullName', 'email', 'phone', 'language', 'nid', 'emergencyContact'];
+  const allowedProfileFields = ['vehicleRegistration', 'motorcycleModel'];
 
-  const userUpdates = {};
+  const userUpdates    = {};
   const profileUpdates = {};
 
   for (const [key, val] of Object.entries(updates)) {
-    if (allowedUserFields.includes(key)) userUpdates[key] = val;
+    if (allowedUserFields.includes(key))    userUpdates[key]    = val;
     if (allowedProfileFields.includes(key)) profileUpdates[key] = val;
   }
 
@@ -52,6 +52,27 @@ export async function updateRiderProfile(userId, updates) {
   ]);
 
   return { user: user.toSafeObject(), profile };
+}
+
+/**
+ * Changes a rider's password after verifying the current one.
+ * @param {string} userId
+ * @param {string} currentPassword
+ * @param {string} newPassword
+ * @returns {Promise<void>}
+ * @throws {ValidationError} if current password is incorrect or new passwords don't match
+ */
+export async function changeRiderPassword(userId, currentPassword, newPassword) {
+  const bcrypt = (await import('bcrypt')).default;
+  const user = await User.findById(userId);
+  if (!user) throw new NotFoundError('User not found');
+
+  const match = await bcrypt.compare(currentPassword, user.passwordHash);
+  if (!match) throw new ValidationError('Current password is incorrect');
+
+  const passwordHash = await bcrypt.hash(newPassword, 12);
+  await User.findByIdAndUpdate(userId, { passwordHash, failedLoginCount: 0, lockedUntil: null });
+  logger.info('Rider password changed', { userId });
 }
 
 /**

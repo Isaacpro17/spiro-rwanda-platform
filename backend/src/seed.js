@@ -4,6 +4,7 @@
  * Creates test data for all collections with proper relationships
  */
 
+import 'dotenv/config';
 import bcrypt from 'bcrypt';
 import mongoose from 'mongoose';
 import { connectDB, disconnectDB } from './config/db.js';
@@ -63,6 +64,7 @@ async function seed() {
     const riderPassword = await bcrypt.hash('Rider@1234', 12);
 
     const users = await User.insertMany([
+      // ── Admin ──
       {
         fullName: 'Admin Spiro',
         phone: '+250780000001',
@@ -70,9 +72,11 @@ async function seed() {
         passwordHash: hashedPassword,
         role: 'admin',
         language: 'en',
+        nid: '1199080012345678',
         isPhoneVerified: true,
         isActive: true,
       },
+      // ── Operator ──
       {
         fullName: 'Jean Baptiste',
         phone: '+250780000002',
@@ -80,9 +84,11 @@ async function seed() {
         passwordHash: operatorPassword,
         role: 'operator',
         language: 'en',
+        nid: '1198570023456789',
         isPhoneVerified: true,
         isActive: true,
       },
+      // ── Technician ──
       {
         fullName: 'Eric Mugisha',
         phone: '+250780000003',
@@ -90,9 +96,11 @@ async function seed() {
         passwordHash: techPassword,
         role: 'technician',
         language: 'rw',
+        nid: '1199760034567890',
         isPhoneVerified: true,
         isActive: true,
       },
+      // ── Rider 1 ──
       {
         fullName: 'Test Rider',
         phone: '+250780000004',
@@ -100,9 +108,11 @@ async function seed() {
         passwordHash: riderPassword,
         role: 'rider',
         language: 'en',
+        nid: '1200180045678901',
         isPhoneVerified: true,
         isActive: true,
       },
+      // ── Rider 2 ──
       {
         fullName: 'Marie Claire',
         phone: '+250780000005',
@@ -110,6 +120,7 @@ async function seed() {
         passwordHash: riderPassword,
         role: 'rider',
         language: 'rw',
+        nid: '1199890056789012',
         isPhoneVerified: true,
         isActive: true,
       },
@@ -125,12 +136,14 @@ async function seed() {
         userId: rider1._id,
         loyaltyPoints: 250,
         vehicleRegistration: 'RAC 001 A',
+        motorcycleModel: 'Spiro Ace',
         emergencyContact: '+250780000099',
       },
       {
         userId: rider2._id,
         loyaltyPoints: 80,
         vehicleRegistration: 'RAB 002 B',
+        motorcycleModel: 'Spiro One',
       },
     ]);
     console.log(`✅ Created ${riderProfiles.length} rider profiles\n`);

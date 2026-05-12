@@ -30,6 +30,13 @@ router.post(
     body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
     body('role').isIn(['rider', 'operator', 'technician']).withMessage('Invalid role — admin accounts cannot be self-registered'),
     body('language').optional().isIn(['rw', 'en']),
+    body('nid')
+      .trim()
+      .notEmpty().withMessage('National ID number is required')
+      .isLength({ min: 16, max: 16 }).withMessage('National ID must be exactly 16 digits')
+      .isNumeric().withMessage('National ID must contain only digits'),
+    body('vehicleRegistration').optional().trim(),
+    body('motorcycleModel').optional().trim(),
   ],
   validate,
   authController.register

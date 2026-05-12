@@ -41,6 +41,17 @@ export async function exportData(req, res, next) {
   } catch (err) { next(err); }
 }
 
+export async function changePassword(req, res, next) {
+  try {
+    const { currentPassword, newPassword, confirmPassword } = req.body;
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({ success: false, data: {}, message: 'New password and confirm password do not match', error: 'password_mismatch' });
+    }
+    await riderService.changeRiderPassword(req.user.userId, currentPassword, newPassword);
+    res.json({ success: true, data: {}, message: 'Password updated successfully.', error: '' });
+  } catch (err) { next(err); }
+}
+
 export async function deleteAccount(req, res, next) {
   try {
     await riderService.deleteRiderAccount(req.user.userId);

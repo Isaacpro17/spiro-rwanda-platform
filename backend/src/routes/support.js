@@ -51,7 +51,40 @@ router.get('/tickets', async (req, res, next) => {
   } catch (err) { return next(err); }
 });
 
-// Update ticket status
+// Rider: edit own ticket (only while in_progress)
+router.patch('/tickets/:id', requireRole('rider'), [
+  body('subject').optional().trim().notEmpty(),
+  body('description').optional().trim().notEmpty(),
+  body('category').optional().isIn(['payment', 'swap', 'account']),
+], async (req, res, next) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) throw new ValidationError('Validation failed', errors.array());
+
+    const ticket = await SupportTicket.findById(req.params.id);
+    if (!ticket) return res.status(404).json({ success: false, data: {}, message: 'Ticket not found', error: 'not_found' });
+
+    // Ownership check — riders can only edit their own tickets
+    if (ticket.riderId.toString() !== req.user.userId) {
+      return res.status(403).json({ success: false, data: {}, message: 'Not authorized to edit this ticket', error: 'forbidden' });
+    }
+
+    // Can only edit while ticket is still in_progress
+    if (ticket.status !== 'in_progress') {
+      return res.status(400).json({ success: false, data: {}, message: 'Ticket can only be edited while in progress', error: 'not_editable' });
+    }
+
+    const { subject, description, category } = req.body;
+    if (subject)     ticket.subject     = subject;
+    if (description) ticket.description = description;
+    if (category)    ticket.category    = category;
+    await ticket.save();
+
+    return res.status(200).json({ success: true, data: ticket, message: 'Ticket updated', error: '' });
+  } catch (err) { return next(err); }
+});
+
+// Update ticket status (admin/operator)
 router.put('/tickets/:id', requireRole('admin', 'operator'), async (req, res, next) => {
   try {
     const ticket = await SupportTicket.findByIdAndUpdate(req.params.id, { $set: req.body }, { new: true });

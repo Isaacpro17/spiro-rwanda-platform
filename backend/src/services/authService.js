@@ -8,6 +8,7 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import User from '../models/User.js';
 import Otp from '../models/Otp.js';
+import RiderProfile from '../models/RiderProfile.js';
 import { env } from '../config/env.js';
 import { getRedisClient } from '../config/redis.js';
 import { ConflictError, AuthError, ValidationError } from '../middleware/errorHandler.js';
@@ -80,12 +81,12 @@ async function revokeRefreshToken(token) {
 
 /**
  * Registers a new user, hashes password, sends OTP.
- * @param {{ fullName: string, phone: string, email: string, role: string, language: string, password: string, nid?: string }} data
+ * @param {{ fullName: string, phone: string, email: string, role: string, language: string, password: string, nid?: string, vehicleRegistration?: string, motorcycleModel?: string }} data
  * @returns {Promise<{ userId: string, otpSent: boolean }>}
  * @throws {ConflictError} if phone or email already exists
  */
 export async function registerUser(data) {
-  const { fullName, phone, email, role, language, password, nid } = data;
+  const { fullName, phone, email, role, language, password, nid, vehicleRegistration, motorcycleModel } = data;
 
   // Check duplicates
   const existing = await User.findOne({ $or: [{ phone }, { email }] });
@@ -112,6 +113,16 @@ export async function registerUser(data) {
   const code = generateOtpCode();
   const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
   await Otp.create({ userId: user._id, code, expiresAt });
+
+  // If registering as a rider, create their profile record immediately
+  if (role === 'rider') {
+    await RiderProfile.create({
+      userId: user._id,
+      vehicleRegistration: vehicleRegistration || '',
+      motorcycleModel: motorcycleModel || '',
+      emergencyContact: '',
+    });
+  }
 
   logger.info('User registered, OTP created', { userId: user._id, role });
 

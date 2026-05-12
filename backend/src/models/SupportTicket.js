@@ -13,7 +13,7 @@ const SupportTicketSchema = new Schema(
     description:   { type: String, required: true },
     category:      { type: String, enum: ['payment', 'swap', 'account', 'other'], required: true },
     screenshotUrl: { type: String },
-    status:        { type: String, enum: ['open', 'in_progress', 'resolved', 'closed'], default: 'open' },
+    status:        { type: String, enum: ['open', 'in_progress', 'resolved', 'closed'], default: 'in_progress' },
     assignedTo:    { type: Schema.Types.ObjectId, ref: 'User' },
     resolution:    { type: String },
   },
