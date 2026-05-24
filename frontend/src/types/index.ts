@@ -196,6 +196,7 @@ export interface AuthResponse {
 }
 export interface RiderProfileData {
   user: User
+  batteryLevel: number | null
   profile: {
     _id: string
     userId: string
@@ -203,6 +204,8 @@ export interface RiderProfileData {
     motorcycleModel?: string
     isVehicleVerified: boolean
     loyaltyPoints: number
+    walletBalance: number
+    subscriptionPlanId?: { _id: string; name: string; priceRwf: number; swapsPerMonth?: number } | null
     emergencyContact?: string
     createdAt: string
     updatedAt: string

@@ -25,7 +25,25 @@ export async function getRiderProfile(userId) {
     profile = await RiderProfile.create({ userId });
   }
 
-  return { user: user.toSafeObject(), profile };
+  // Derive battery level from the most recent completed swap's charged battery
+  let batteryLevel = null;
+  try {
+    const latestSwap = await SwapTransaction.findOne({
+      riderId: userId,
+      status:  'completed',
+    })
+      .sort({ startTime: -1 })
+      .populate('chargedBatteryId', 'chargeLevel')
+      .lean();
+
+    if (latestSwap?.chargedBatteryId?.chargeLevel != null) {
+      batteryLevel = latestSwap.chargedBatteryId.chargeLevel;
+    }
+  } catch {
+    // Graceful fallback — battery level stays null
+  }
+
+  return { user: user.toSafeObject(), profile, batteryLevel };
 }
 
 /**

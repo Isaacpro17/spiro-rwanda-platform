@@ -141,3 +141,31 @@ export async function getMyReservations(req, res, next) {
     next(err);
   }
 }
+
+/**
+ * GET /api/v1/swaps/my-swaps
+ * Rider-scoped swap history with optional ?limit, ?status, ?startDate filters.
+ */
+export async function getMySwaps(req, res, next) {
+  try {
+    const { default: SwapTransaction } = await import('../models/SwapTransaction.js');
+    const { limit = 50, status, startDate } = req.query;
+
+    const filter = { riderId: req.user.userId };
+    if (status)    filter.status    = status;
+    if (startDate) filter.startTime = { $gte: new Date(startDate) };
+
+    const data = await SwapTransaction.find(filter)
+      .populate('stationId',        'name address')
+      .populate('depletedBatteryId','serialNumber')
+      .populate('chargedBatteryId', 'serialNumber')
+      .populate('paymentId',        'amountRwf status')
+      .sort({ startTime: -1 })
+      .limit(Number(limit))
+      .lean();
+
+    res.json({ success: true, data, message: 'Swaps retrieved.', error: '' });
+  } catch (err) {
+    next(err);
+  }
+}

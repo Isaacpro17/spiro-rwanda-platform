@@ -135,6 +135,7 @@ async function seed() {
       {
         userId: rider1._id,
         loyaltyPoints: 250,
+        walletBalance: 25000,
         vehicleRegistration: 'RAC 001 A',
         motorcycleModel: 'Spiro Ace',
         emergencyContact: '+250780000099',
@@ -142,6 +143,7 @@ async function seed() {
       {
         userId: rider2._id,
         loyaltyPoints: 80,
+        walletBalance: 12000,
         vehicleRegistration: 'RAB 002 B',
         motorcycleModel: 'Spiro One',
       },

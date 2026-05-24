@@ -14,6 +14,7 @@ const RiderProfileSchema = new Schema(
     isVehicleVerified:   { type: Boolean, default: false },
     subscriptionPlanId:  { type: Schema.Types.ObjectId, ref: 'SubscriptionPlan' },
     loyaltyPoints:       { type: Number, default: 0, min: 0 },
+    walletBalance:       { type: Number, default: 0, min: 0 },
     emergencyContact:    { type: String },
   },
   { timestamps: true }
