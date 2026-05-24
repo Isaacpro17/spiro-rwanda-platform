@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
@@ -13,8 +13,20 @@ export function LoginPage() {
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
-  const { login } = useAuth()
+  const { login, isAuthenticated, isLoading: authLoading, user } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+
+  // If already authenticated, redirect to user's dashboard (prevents URL bypass)
+  if (!authLoading && isAuthenticated && user) {
+    const dashboards: Record<string, string> = {
+      rider:      '/rider/dashboard',
+      operator:   '/operator/dashboard',
+      technician: '/technician/dashboard',
+      admin:      '/admin/dashboard',
+    }
+    return <Navigate to={dashboards[user.role] ?? '/'} replace />
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -23,14 +35,15 @@ export function LoginPage() {
 
     try {
       const loggedInUser = await login(phone, password)
-      // Navigate to the correct dashboard based on server-assigned role
+      // If there was an attempted protected route, redirect back to it
+      const from = (location.state as any)?.from?.pathname
       const dashboards: Record<string, string> = {
-        rider: '/rider/dashboard',
-        operator: '/operator/dashboard',
+        rider:      '/rider/dashboard',
+        operator:   '/operator/dashboard',
         technician: '/technician/dashboard',
-        admin: '/admin/dashboard',
+        admin:      '/admin/dashboard',
       }
-      navigate(dashboards[loggedInUser.role] ?? '/')
+      navigate(from ?? dashboards[loggedInUser.role] ?? '/')
     } catch (err: any) {
       setError(err.response?.data?.message || 'Login failed. Please check your credentials.')
     } finally {

@@ -36,6 +36,18 @@ export async function createReservation(riderId, stationId, requestedTime) {
   if (station.status !== 'active') throw new ValidationError('Station is not currently active');
   if (station.availableBatteries < 1) throw new ValidationError('No batteries available at this station');
 
+  // Enforce 1 active reservation per rider
+  const existingReservation = await SlotReservation.findOne({
+    riderId,
+    status:       'confirmed',
+    reservedTime: { $gte: new Date() },
+  });
+  if (existingReservation) {
+    throw new ValidationError(
+      'You already have an active reservation. Please cancel it before creating a new one.'
+    );
+  }
+
   const cancellationCode = crypto.randomBytes(4).toString('hex').toUpperCase();
 
   // Count existing confirmed reservations for queue position

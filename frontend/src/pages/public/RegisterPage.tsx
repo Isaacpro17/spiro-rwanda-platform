@@ -18,6 +18,8 @@ import {
   ArrowRight,
   ArrowLeft,
   CheckCircle2,
+  CreditCard,
+  Car,
 } from 'lucide-react'
 
 type Role = 'rider' | 'operator' | 'technician'
@@ -58,9 +60,13 @@ export function RegisterPage() {
     fullName: '',
     phone: '',
     email: '',
+    nid: '',
     password: '',
     confirmPassword: '',
     language: 'en',
+    // rider-specific fields
+    vehicleRegistration: '',
+    motorcycleModel: '',
   })
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
@@ -69,6 +75,9 @@ export function RegisterPage() {
 
   const set = (field: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((f) => ({ ...f, [field]: e.target.value }))
+
+  /* ── NID validation: exactly 16 digits ── */
+  const nidValid = /^\d{16}$/.test(form.nid)
 
   /* ── Password strength ── */
   const passwordChecks = {
@@ -84,20 +93,29 @@ export function RegisterPage() {
     setError('')
 
     if (!role) { setError('Please select your role'); return }
+    if (!nidValid) { setError('National ID must be exactly 16 digits'); return }
     if (form.password !== form.confirmPassword) { setError('Passwords do not match'); return }
     if (passwordStrength < 3) { setError('Please use a stronger password'); return }
 
     setIsLoading(true)
     try {
-      const result = await api.post<{ userId: string; otpSent: boolean }>('/auth/register', {
+      const payload: Record<string, string> = {
         fullName: form.fullName,
         phone: form.phone,
         email: form.email,
+        nid: form.nid,
         password: form.password,
         role,
         language: form.language,
-      })
+      }
 
+      // Rider-specific fields
+      if (role === 'rider') {
+        payload.vehicleRegistration = form.vehicleRegistration
+        payload.motorcycleModel = form.motorcycleModel
+      }
+
+      const result = await api.post<{ userId: string; otpSent: boolean }>('/auth/register', payload)
       navigate('/verify-otp', { state: { userId: result.userId, phone: form.phone } })
     } catch (err: any) {
       const msg = err.response?.data?.message || err.message || 'Registration failed. Please try again.'
@@ -274,6 +292,75 @@ export function RegisterPage() {
                     value={form.email} onChange={set('email')} className="pl-10" required />
                 </div>
               </div>
+
+              {/* National ID Number */}
+              <div className="space-y-1">
+                <Label htmlFor="nid">National ID Number (NID)</Label>
+                <div className="relative">
+                  <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Input
+                    id="nid"
+                    type="text"
+                    placeholder="16-digit national identification number"
+                    value={form.nid}
+                    onChange={(e) => {
+                      // Only allow digits, max 16
+                      const val = e.target.value.replace(/\D/g, '').slice(0, 16)
+                      setForm((f) => ({ ...f, nid: val }))
+                    }}
+                    className={`pl-10 ${form.nid && !nidValid ? 'border-red-300' : form.nid && nidValid ? 'border-green-400' : ''}`}
+                    maxLength={16}
+                    inputMode="numeric"
+                    required
+                  />
+                </div>
+                {form.nid && (
+                  <p className={`text-xs mt-1 ${nidValid ? 'text-green-600' : 'text-red-500'}`}>
+                    {nidValid ? '✓ Valid NID format' : `${form.nid.length}/16 digits entered`}
+                  </p>
+                )}
+              </div>
+
+              {/* Rider-specific fields */}
+              {role === 'rider' && (
+                <div className="space-y-4 pt-2 pb-1">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    <Bike className="w-3.5 h-3.5" />
+                    <span>Motorcycle Details</span>
+                    <div className="flex-1 h-px bg-gray-200" />
+                  </div>
+                  {/* Motorcycle Model */}
+                  <div className="space-y-1">
+                    <Label htmlFor="motorcycleModel">Motorcycle Model</Label>
+                    <div className="relative">
+                      <Bike className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <Input
+                        id="motorcycleModel"
+                        type="text"
+                        placeholder="e.g. Spiro Electric"
+                        value={form.motorcycleModel}
+                        onChange={set('motorcycleModel')}
+                        className="pl-10"
+                      />
+                    </div>
+                  </div>
+                  {/* Vehicle Registration */}
+                  <div className="space-y-1">
+                    <Label htmlFor="vehicleRegistration">Vehicle Registration Number</Label>
+                    <div className="relative">
+                      <Car className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <Input
+                        id="vehicleRegistration"
+                        type="text"
+                        placeholder="e.g. RAD 123 A"
+                        value={form.vehicleRegistration}
+                        onChange={set('vehicleRegistration')}
+                        className="pl-10"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Password */}
               <div className="space-y-1">

@@ -119,3 +119,25 @@ export async function getSwapStats(req, res, next) {
     next(err);
   }
 }
+
+/**
+ * GET /api/v1/swaps/my-reservations
+ * Get the authenticated rider's upcoming confirmed reservations.
+ */
+export async function getMyReservations(req, res, next) {
+  try {
+    const { SlotReservation } = await import('../models/SlotReservation.js');
+    const now = new Date();
+    const data = await SlotReservation.find({
+      riderId:      req.user.userId,
+      status:       'confirmed',
+      reservedTime: { $gte: now },
+    })
+      .populate('stationId', 'name address')
+      .sort({ reservedTime: 1 });
+
+    res.json({ success: true, data, message: 'Reservations retrieved.', error: '' });
+  } catch (err) {
+    next(err);
+  }
+}

@@ -29,21 +29,37 @@ export interface Station {
   location: {
     type: 'Point'
     coordinates: [number, number] // [longitude, latitude]
-    address: string
   }
-  capacity: number
+  address?: string
+  province?: string
+  totalSlots: number
   availableBatteries: number
   chargingBatteries: number
+  lowInventoryThreshold?: number
   status: 'active' | 'inactive' | 'maintenance'
   operatorId?: string
+  assignedTechnicians?: string[]
   operatingHours: {
     open: string
     close: string
   }
-  currentQueue: number
-  averageWaitTime: number
+  stationCode?: string
   createdAt: string
   updatedAt: string
+}
+
+/** Card-ready shape produced by the station enrichment pipeline */
+export interface StationCardData {
+  id: string
+  name: string
+  address: string
+  isOpen: boolean
+  statusLabel: 'Open' | 'Closed'
+  available: number
+  distanceKm: string | null
+  etaMin: number | null
+  mapsUrl: string | null
+  coordinates: [number, number] // [lng, lat]
 }
 
 export interface Battery {
@@ -126,18 +142,14 @@ export interface SubscriptionPlan {
 
 export interface SupportTicket {
   _id: string
-  userId: string
+  ticketNumber: string
+  riderId: string
   subject: string
   description: string
-  category: 'technical' | 'billing' | 'general' | 'complaint'
-  priority: 'low' | 'medium' | 'high'
-  status: 'open' | 'in-progress' | 'resolved' | 'closed'
+  category: 'payment' | 'swap' | 'account' | 'other'
+  status: 'open' | 'in_progress' | 'resolved' | 'closed'
   assignedTo?: string
-  responses: Array<{
-    message: string
-    by: string
-    timestamp: string
-  }>
+  resolution?: string
   createdAt: string
   updatedAt: string
 }
@@ -181,4 +193,18 @@ export interface AuthResponse {
   accessToken: string
   refreshToken: string
   user: User
+}
+export interface RiderProfileData {
+  user: User
+  profile: {
+    _id: string
+    userId: string
+    vehicleRegistration?: string
+    motorcycleModel?: string
+    isVehicleVerified: boolean
+    loyaltyPoints: number
+    emergencyContact?: string
+    createdAt: string
+    updatedAt: string
+  } | null
 }
