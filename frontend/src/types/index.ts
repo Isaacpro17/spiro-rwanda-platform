@@ -277,8 +277,8 @@ export interface StationReservation {
 
 export interface StationMaintenanceRequest {
   _id: string
-  stationId: string
-  createdByOperator?: { _id: string; fullName: string }
+  stationId: string | { _id: string; name: string; address?: string; province?: string; stationCode?: string }
+  createdByOperator?: { _id: string; fullName: string; phone?: string }
   assignedTechnician?: { _id: string; fullName: string; phone: string }
   equipment: string
   faultDescription: string
@@ -288,6 +288,20 @@ export interface StationMaintenanceRequest {
   resolvedAt?: string
   createdAt: string
   updatedAt: string
+}
+
+export interface BatteryDiagnostics {
+  batteryId: string
+  serialNumber: string
+  healthStatus: string
+  healthPercentage: number
+  chargeLevel: number
+  cycleCount: number
+  expectedRemainingCycles: number
+  lastChargedAt?: string
+  lastSwappedAt?: string
+  ageInDays: number
+  recommendations: string[]
 }
 
 export interface StationBreakdown {

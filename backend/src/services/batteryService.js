@@ -251,20 +251,25 @@ export async function createRepairRequest(batteryId, reportedBy, data) {
 
   const { issueType, description, priority } = data;
 
+  if (!battery.stationId) {
+    throw new Error('Battery has no associated station — cannot create repair request');
+  }
+
+  const urgencyMap = { critical: 'critical', high: 'high', low: 'low' };
+  const urgency = urgencyMap[priority] || 'medium';
+
   const maintenanceRequest = await MaintenanceRequest.create({
-    type: 'battery',
-    batteryId,
-    stationId: battery.currentStationId,
-    reportedBy,
-    issueType,
-    description,
-    priority: priority || 'medium',
-    status: 'pending',
+    stationId: battery.stationId,
+    createdByOperator: reportedBy,
+    equipment: `Battery ${battery.serialNumber}`,
+    faultDescription: `[${issueType}] ${description}`,
+    urgency,
+    status: 'open',
   });
 
-  // Update battery status
-  battery.status = 'maintenance';
-  battery.healthStatus = issueType === 'faulty' ? 'faulty' : 'degraded';
+  // Mark battery under repair
+  battery.status = 'repair';
+  battery.isFaulty = issueType === 'faulty';
   await battery.save();
 
   logger.info('Battery repair request created', {
