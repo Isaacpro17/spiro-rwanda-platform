@@ -19,6 +19,12 @@ router.post('/:id/refund', requireRole('admin'), [
 ], paymentController.processRefund);
 
 // Rider routes
+router.post('/topup', requireRole('rider'), [
+  body('provider').isIn(['mtn_momo', 'airtel_money']).withMessage('Provider must be mtn_momo or airtel_money'),
+  body('amountRwf').isFloat({ min: 100 }).withMessage('Minimum top-up amount is RWF 100'),
+  body('senderPhone').notEmpty().withMessage('Phone number is required'),
+], paymentController.initiateTopup);
+
 router.post('/initiate', requireRole('rider'), [
   body('swapTransactionId').notEmpty(),
   body('provider').isIn(['mtn_momo', 'airtel_money']),

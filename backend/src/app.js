@@ -23,6 +23,8 @@ import auditRouter from './routes/audit.js';
 import supportRouter from './routes/support.js';
 import batteryRouter from './routes/batteries.js';
 import userRouter from './routes/users.js';
+import subscriptionRouter from './routes/subscriptions.js';
+import operatorRouter from './routes/operators.js';
 import logger from './utils/logger.js';
 
 /**
@@ -99,6 +101,8 @@ export function createApp() {
   app.use('/api/v1/support', supportRouter);
   app.use('/api/v1/batteries', batteryRouter);
   app.use('/api/v1/users', userRouter);
+  app.use('/api/v1/subscriptions', subscriptionRouter);
+  app.use('/api/v1/operators', operatorRouter);
 
   // ── 404 Handler ─────────────────────────────────────────────────────────────
   app.use((req, res) => {

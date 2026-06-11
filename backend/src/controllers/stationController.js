@@ -54,3 +54,24 @@ export async function createMaintenance(req, res, next) {
     res.status(201).json({ success: true, data, message: 'Maintenance request created.', error: '' });
   } catch (err) { next(err); }
 }
+
+export async function getStationStats(req, res, next) {
+  try {
+    const data = await stationService.getStationStats(req.params.id);
+    res.json({ success: true, data, message: 'Station stats retrieved.', error: '' });
+  } catch (err) { next(err); }
+}
+
+export async function getStationReservations(req, res, next) {
+  try {
+    const data = await stationService.getStationReservations(req.params.id, req.query);
+    res.json({ success: true, data, message: 'Reservations retrieved.', error: '' });
+  } catch (err) { next(err); }
+}
+
+export async function getStationMaintenance(req, res, next) {
+  try {
+    const data = await stationService.getStationMaintenanceList(req.params.id, req.query);
+    res.json({ success: true, data, message: 'Maintenance requests retrieved.', error: '' });
+  } catch (err) { next(err); }
+}

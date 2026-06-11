@@ -92,6 +92,21 @@ router.post(
 // GET /auth/me — returns the current user's profile (requires valid access token)
 router.get('/me', authenticate, authController.me);
 
+// PUT /auth/me — updates the authenticated user's own profile
+router.put('/me', authenticate, authController.updateMe);
+
+// PUT /auth/change-password — changes the authenticated user's password
+router.put(
+  '/change-password',
+  authenticate,
+  [
+    body('currentPassword').notEmpty().withMessage('Current password is required'),
+    body('newPassword').isLength({ min: 8 }).withMessage('New password must be at least 8 characters'),
+  ],
+  validate,
+  authController.changePassword
+);
+
 // ── DEV-ONLY: view OTP without SMS ────────────────────────────────────────────
 // This route is disabled automatically in production.
 if (process.env.NODE_ENV !== 'production') {

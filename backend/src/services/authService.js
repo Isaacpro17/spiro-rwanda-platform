@@ -11,7 +11,7 @@ import Otp from '../models/Otp.js';
 import RiderProfile from '../models/RiderProfile.js';
 import { env } from '../config/env.js';
 import { getRedisClient } from '../config/redis.js';
-import { ConflictError, AuthError, ValidationError } from '../middleware/errorHandler.js';
+import { ConflictError, AuthError, ValidationError, NotFoundError } from '../middleware/errorHandler.js';
 import logger from '../utils/logger.js';
 
 const BCRYPT_ROUNDS = 12;
@@ -313,4 +313,52 @@ export async function getCurrentUser(userId) {
   }
 
   return user.toSafeObject();
+}
+
+/**
+ * Updates the authenticated user's own profile fields.
+ * @param {string} userId
+ * @param {Object} updates - Allowed: fullName, phone, email, language
+ * @returns {Promise<Object>} Updated safe user object
+ */
+export async function updateCurrentUser(userId, updates) {
+  const allowed = ['fullName', 'phone', 'email', 'language'];
+  const patch = {};
+  for (const k of allowed) {
+    if (updates[k] !== undefined && updates[k] !== '') patch[k] = updates[k];
+  }
+
+  if (patch.phone || patch.email) {
+    const clauses = [];
+    if (patch.phone) clauses.push({ phone: patch.phone });
+    if (patch.email) clauses.push({ email: patch.email });
+    const conflict = await User.findOne({ _id: { $ne: userId }, $or: clauses });
+    if (conflict) {
+      const field = patch.phone && conflict.phone === patch.phone ? 'phone' : 'email';
+      throw new ConflictError(`This ${field} is already in use`);
+    }
+  }
+
+  const user = await User.findByIdAndUpdate(userId, patch, { new: true, runValidators: true });
+  if (!user) throw new NotFoundError('User not found');
+  logger.info('User profile updated', { userId });
+  return user.toSafeObject();
+}
+
+/**
+ * Changes the authenticated user's password after verifying the current one.
+ * @param {string} userId
+ * @param {string} currentPassword
+ * @param {string} newPassword
+ */
+export async function changeCurrentUserPassword(userId, currentPassword, newPassword) {
+  const user = await User.findById(userId);
+  if (!user) throw new NotFoundError('User not found');
+
+  const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+  if (!valid) throw new AuthError('Current password is incorrect');
+
+  const hash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+  await User.findByIdAndUpdate(userId, { passwordHash: hash });
+  logger.info('Password changed', { userId });
 }

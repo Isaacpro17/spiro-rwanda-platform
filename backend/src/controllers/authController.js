@@ -64,3 +64,20 @@ export async function me(req, res, next) {
     res.json({ success: true, data: { user }, message: 'User profile retrieved.', error: '' });
   } catch (err) { next(err); }
 }
+
+/** PUT /auth/me — updates the authenticated user's own profile */
+export async function updateMe(req, res, next) {
+  try {
+    const user = await authService.updateCurrentUser(req.user.userId, req.body);
+    res.json({ success: true, data: { user }, message: 'Profile updated.', error: '' });
+  } catch (err) { next(err); }
+}
+
+/** PUT /auth/change-password — changes the authenticated user's password */
+export async function changePassword(req, res, next) {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    await authService.changeCurrentUserPassword(req.user.userId, currentPassword, newPassword);
+    res.json({ success: true, data: {}, message: 'Password changed successfully.', error: '' });
+  } catch (err) { next(err); }
+}

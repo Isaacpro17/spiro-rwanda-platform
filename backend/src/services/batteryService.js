@@ -21,7 +21,7 @@ export async function listBatteries(query) {
 
   const filter = {};
   if (query.status) filter.status = query.status;
-  if (query.stationId) filter.currentStationId = query.stationId;
+  if (query.stationId) filter.stationId = query.stationId;
   if (query.healthStatus) filter.healthStatus = query.healthStatus;
   if (query.search) {
     filter.$or = [

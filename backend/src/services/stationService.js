@@ -3,9 +3,13 @@
  * @description Station management: CRUD, inventory, maintenance.
  */
 
+import mongoose from 'mongoose';
 import Station from '../models/Station.js';
 import Battery from '../models/Battery.js';
 import MaintenanceRequest from '../models/MaintenanceRequest.js';
+import SwapTransaction from '../models/SwapTransaction.js';
+import SlotReservation from '../models/SlotReservation.js';
+import Payment from '../models/Payment.js';
 import { NotFoundError, ValidationError } from '../middleware/errorHandler.js';
 import logger from '../utils/logger.js';
 
@@ -168,4 +172,100 @@ export async function createMaintenanceRequest(stationId, operatorId, data) {
   logger.info('Maintenance request created', { requestId: request._id, stationId, urgency: data.urgency });
   // Notification to technicians handled in Task 10
   return request;
+}
+
+/**
+ * Returns today's swap count, revenue, avg wait time, and utilization for a station.
+ * @param {string} stationId
+ */
+export async function getStationStats(stationId) {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const end = new Date();
+  end.setHours(23, 59, 59, 999);
+  const stationOid = new mongoose.Types.ObjectId(stationId);
+
+  const [todaySwaps, revenueResult, avgWaitResult, station] = await Promise.all([
+    SwapTransaction.countDocuments({ stationId: stationOid, status: 'completed', createdAt: { $gte: start, $lte: end } }),
+    Payment.aggregate([
+      { $match: { status: 'success', type: 'swap_payment', createdAt: { $gte: start, $lte: end } } },
+      { $lookup: { from: 'swaptransactions', localField: 'swapTransactionId', foreignField: '_id', as: 'swap' } },
+      { $unwind: '$swap' },
+      { $match: { 'swap.stationId': stationOid } },
+      { $group: { _id: null, total: { $sum: '$amountRwf' } } },
+    ]),
+    SwapTransaction.aggregate([
+      { $match: { stationId: stationOid, status: 'completed', durationMinutes: { $gt: 0 }, createdAt: { $gte: start } } },
+      { $group: { _id: null, avg: { $avg: '$durationMinutes' } } },
+    ]),
+    Station.findById(stationId).select('totalSlots').lean(),
+  ]);
+
+  const utilization = station && station.totalSlots > 0
+    ? Math.min(Math.round((todaySwaps / (station.totalSlots * 10)) * 100), 100)
+    : 0;
+
+  return {
+    todaySwaps,
+    todayRevenueRwf: revenueResult[0]?.total || 0,
+    avgWaitTimeMinutes: Math.round((avgWaitResult[0]?.avg || 0) * 10) / 10,
+    utilizationPercent: utilization,
+  };
+}
+
+/**
+ * Lists reservations for a station with optional status filter.
+ * @param {string} stationId
+ * @param {Object} query - { status?, page?, limit? }
+ */
+export async function getStationReservations(stationId, query = {}) {
+  const page = parseInt(query.page) || 1;
+  const limit = parseInt(query.limit) || 20;
+  const filter = { stationId };
+  if (query.status) {
+    filter.status = query.status;
+  } else {
+    filter.status = { $in: ['confirmed', 'completed', 'cancelled', 'expired'] };
+  }
+  if (query.upcoming === 'true') {
+    filter.reservedTime = { $gte: new Date() };
+    filter.status = 'confirmed';
+  }
+
+  const [reservations, total] = await Promise.all([
+    SlotReservation.find(filter)
+      .populate('riderId', 'fullName phone')
+      .sort({ reservedTime: 1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean(),
+    SlotReservation.countDocuments(filter),
+  ]);
+
+  return { reservations, total, page, limit };
+}
+
+/**
+ * Lists maintenance requests for a station.
+ * @param {string} stationId
+ * @param {Object} query - { status?, page?, limit? }
+ */
+export async function getStationMaintenanceList(stationId, query = {}) {
+  const page = parseInt(query.page) || 1;
+  const limit = parseInt(query.limit) || 20;
+  const filter = { stationId };
+  if (query.status) filter.status = query.status;
+
+  const [requests, total] = await Promise.all([
+    MaintenanceRequest.find(filter)
+      .populate('createdByOperator', 'fullName')
+      .populate('assignedTechnician', 'fullName phone')
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean(),
+    MaintenanceRequest.countDocuments(filter),
+  ]);
+
+  return { requests, total, page, limit };
 }

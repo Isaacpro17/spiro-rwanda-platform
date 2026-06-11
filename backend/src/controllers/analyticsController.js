@@ -4,6 +4,7 @@
  */
 
 import * as analyticsService from '../services/analyticsService.js';
+import Station from '../models/Station.js';
 
 export async function getKpis(req, res, next) {
   try {
@@ -29,7 +30,27 @@ export async function exportReport(req, res, next) {
 
 export async function getStationBreakdown(req, res, next) {
   try {
+    if (req.user.role === 'operator') {
+      const station = await Station.findById(req.params.id).select('operatorId').lean();
+      if (!station || station.operatorId?.toString() !== req.user.userId) {
+        return res.status(403).json({ success: false, message: 'Access denied: not your station', error: 'Forbidden' });
+      }
+    }
     const data = await analyticsService.getStationBreakdown(req.params.id, req.query);
     return res.status(200).json({ success: true, data, message: 'Station breakdown retrieved', error: '' });
+  } catch (err) { return next(err); }
+}
+
+export async function getStationDaily(req, res, next) {
+  try {
+    if (req.user.role === 'operator') {
+      const station = await Station.findById(req.params.id).select('operatorId').lean();
+      if (!station || station.operatorId?.toString() !== req.user.userId) {
+        return res.status(403).json({ success: false, message: 'Access denied: not your station', error: 'Forbidden' });
+      }
+    }
+    const days = Math.min(parseInt(req.query.days) || 7, 30);
+    const data = await analyticsService.getStationDailyStats(req.params.id, days);
+    return res.status(200).json({ success: true, data, message: 'Daily stats retrieved', error: '' });
   } catch (err) { return next(err); }
 }

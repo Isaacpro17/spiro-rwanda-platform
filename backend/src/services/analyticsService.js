@@ -3,6 +3,7 @@
  * @description KPI computation, report generation, and export.
  */
 
+import mongoose from 'mongoose';
 import SwapTransaction from '../models/SwapTransaction.js';
 import Payment from '../models/Payment.js';
 import Station from '../models/Station.js';
@@ -168,4 +169,39 @@ export async function exportReport(filters, format) {
   logger.info('Report exported', { format, filters });
 
   return { kpis, swaps, payments, format, generatedAt: new Date().toISOString() };
+}
+
+/**
+ * Returns daily swap count and revenue for the last N days for a specific station.
+ * @param {string} stationId
+ * @param {number} days
+ * @returns {Promise<Array<{ date: string, swaps: number, revenueRwf: number }>>}
+ */
+export async function getStationDailyStats(stationId, days = 7) {
+  const stationOid = new mongoose.Types.ObjectId(stationId);
+  const results = [];
+  const now = new Date();
+
+  for (let i = days - 1; i >= 0; i--) {
+    const start = new Date(now);
+    start.setDate(start.getDate() - i);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setHours(23, 59, 59, 999);
+
+    const [swaps, rev] = await Promise.all([
+      SwapTransaction.countDocuments({ stationId: stationOid, status: 'completed', createdAt: { $gte: start, $lte: end } }),
+      Payment.aggregate([
+        { $match: { status: 'success', type: 'swap_payment', createdAt: { $gte: start, $lte: end } } },
+        { $lookup: { from: 'swaptransactions', localField: 'swapTransactionId', foreignField: '_id', as: 'swap' } },
+        { $unwind: '$swap' },
+        { $match: { 'swap.stationId': stationOid } },
+        { $group: { _id: null, total: { $sum: '$amountRwf' } } },
+      ]),
+    ]);
+
+    results.push({ date: start.toISOString().slice(0, 10), swaps, revenueRwf: rev[0]?.total || 0 });
+  }
+
+  return results;
 }

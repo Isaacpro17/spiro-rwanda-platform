@@ -9,6 +9,16 @@ import * as auditService from '../services/auditService.js';
 import { validationResult } from 'express-validator';
 import { ValidationError } from '../middleware/errorHandler.js';
 
+export async function initiateTopup(req, res, next) {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) throw new ValidationError('Validation failed', errors.array());
+    const { provider, amountRwf, senderPhone } = req.body;
+    const result = await paymentService.initiateWalletTopup(req.user.userId, provider, amountRwf, senderPhone);
+    return res.status(200).json({ success: true, data: result, message: 'Wallet topped up successfully', error: '' });
+  } catch (err) { return next(err); }
+}
+
 export async function initiatePayment(req, res, next) {
   try {
     const errors = validationResult(req);

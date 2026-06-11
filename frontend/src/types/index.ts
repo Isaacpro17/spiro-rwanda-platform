@@ -154,6 +154,58 @@ export interface SupportTicket {
   updatedAt: string
 }
 
+export interface SubscriptionPlanData {
+  _id: string
+  name: string
+  priceRwf: number
+  swapsPerMonth?: number
+  loyaltyPointsPerSwap?: number
+  loyaltyRedemptionThreshold?: number
+  renewalDayOfMonth?: number
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface SlotReservationDetail {
+  _id: string
+  riderId: string
+  stationId: {
+    _id: string
+    name: string
+    address?: string
+  }
+  reservedTime: string
+  cancellationCode: string
+  status: 'confirmed' | 'cancelled' | 'expired' | 'completed'
+  cancelledBy?: 'rider' | 'system'
+  queuePosition?: number
+  createdAt: string
+}
+
+export interface PaymentRecord {
+  _id: string
+  transactionId: string
+  provider: 'mtn_momo' | 'airtel_money' | 'cash'
+  amountRwf: number
+  currency: string
+  riderId: string
+  swapTransactionId?: string
+  senderPhone?: string
+  type: 'swap_payment' | 'wallet_topup' | 'subscription'
+  status: 'pending' | 'success' | 'failed'
+  refunded?: boolean
+  timestamp: string
+  createdAt: string
+}
+
+export interface FaqItem {
+  id: number
+  question: string
+  answer: string
+  lang: string
+}
+
 export interface Analytics {
   totalSwaps: number
   totalRevenue: number
@@ -164,6 +216,92 @@ export interface Analytics {
   swapsByHour: Array<{ hour: number; count: number }>
   revenueByDay: Array<{ date: string; amount: number }>
   topStations: Array<{ stationId: string; name: string; swaps: number }>
+}
+
+// ── Operator portal types ────────────────────────────────────────────────────
+
+export interface StationDetail {
+  _id: string
+  name: string
+  address?: string
+  province?: string
+  stationCode?: string
+  totalSlots: number
+  availableBatteries: number
+  chargingBatteries: number
+  lowInventoryThreshold: number
+  status: 'active' | 'inactive' | 'maintenance'
+  operatingHours: { open: string; close: string }
+  operatorId?: { _id: string; fullName: string; phone: string }
+  assignedTechnicians?: Array<{ _id: string; fullName: string; phone: string }>
+  createdAt: string
+  updatedAt: string
+}
+
+export interface StationStats {
+  todaySwaps: number
+  todayRevenueRwf: number
+  avgWaitTimeMinutes: number
+  utilizationPercent: number
+}
+
+export interface QueueStatus {
+  queue: string[]
+  length: number
+  estimatedWait: number
+}
+
+export interface BatteryData {
+  _id: string
+  serialNumber: string
+  stationId?: string
+  status: 'available' | 'charging' | 'in_use' | 'faulty' | 'repair'
+  chargeLevel: number
+  isFaulty: boolean
+  repairCount: number
+  lastSwapAt?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface StationReservation {
+  _id: string
+  riderId: { _id: string; fullName: string; phone: string }
+  stationId: string
+  reservedTime: string
+  cancellationCode: string
+  queuePosition: number
+  status: 'confirmed' | 'cancelled' | 'expired' | 'completed'
+  createdAt: string
+}
+
+export interface StationMaintenanceRequest {
+  _id: string
+  stationId: string
+  createdByOperator?: { _id: string; fullName: string }
+  assignedTechnician?: { _id: string; fullName: string; phone: string }
+  equipment: string
+  faultDescription: string
+  urgency: 'low' | 'medium' | 'high' | 'critical'
+  status: 'open' | 'assigned' | 'in_progress' | 'resolved'
+  notes?: string
+  resolvedAt?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface StationBreakdown {
+  stationId: string
+  totalSwaps: number
+  avgWaitTimeMinutes: number
+  revenueRwf: number
+  maintenanceIncidents: number
+}
+
+export interface DailyStat {
+  date: string
+  swaps: number
+  revenueRwf: number
 }
 
 export interface ApiResponse<T> {

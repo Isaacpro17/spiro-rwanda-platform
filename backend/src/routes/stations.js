@@ -19,5 +19,8 @@ router.put('/:id', requireRole('admin', 'operator'), stationController.updateSta
 router.put('/:id/inventory', requireRole('admin', 'operator'), stationController.updateInventory);
 router.put('/:id/status', requireRole('admin', 'operator'), stationController.setStatus);
 router.post('/:id/maintenance', requireRole('admin', 'operator'), stationController.createMaintenance);
+router.get('/:id/stats', requireRole('admin', 'operator'), stationController.getStationStats);
+router.get('/:id/reservations', requireRole('admin', 'operator'), stationController.getStationReservations);
+router.get('/:id/maintenance', requireRole('admin', 'operator', 'technician'), stationController.getStationMaintenance);
 
 export default router;

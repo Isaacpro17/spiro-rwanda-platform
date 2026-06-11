@@ -6,6 +6,7 @@
 import crypto from 'crypto';
 import Payment from '../models/Payment.js';
 import SwapTransaction from '../models/SwapTransaction.js';
+import RiderProfile from '../models/RiderProfile.js';
 import { NotFoundError, ValidationError } from '../middleware/errorHandler.js';
 import logger from '../utils/logger.js';
 
@@ -88,6 +89,52 @@ export async function generateInvoice(paymentId) {
     transactionId: payment.transactionId,
     timestamp: payment.timestamp,
     status: payment.status,
+  };
+}
+
+/**
+ * Initiates a wallet top-up and immediately credits the balance (dev simulation).
+ * In production, replace the immediate credit with a webhook-driven approach.
+ * @param {string} riderId
+ * @param {'mtn_momo'|'airtel_money'} provider
+ * @param {number} amountRwf
+ * @param {string} senderPhone
+ * @returns {Promise<{ paymentId: string, transactionId: string, status: string, newWalletBalance: number }>}
+ */
+export async function initiateWalletTopup(riderId, provider, amountRwf, senderPhone) {
+  const transactionId = `WLT${Date.now()}${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
+
+  const payment = await Payment.create({
+    transactionId,
+    provider,
+    amountRwf,
+    riderId,
+    senderPhone,
+    type: 'wallet_topup',
+    status: 'pending',
+  });
+
+  // Simulate immediate confirmation (replace with webhook in production)
+  const updatedProfile = await RiderProfile.findOneAndUpdate(
+    { userId: riderId },
+    { $inc: { walletBalance: amountRwf } },
+    { new: true, upsert: true }
+  );
+
+  await Payment.findByIdAndUpdate(payment._id, { status: 'success' });
+
+  logger.info('Wallet top-up processed', {
+    riderId,
+    amountRwf,
+    provider,
+    newBalance: updatedProfile.walletBalance,
+  });
+
+  return {
+    paymentId: payment._id.toString(),
+    transactionId,
+    status: 'success',
+    newWalletBalance: updatedProfile.walletBalance,
   };
 }
 
