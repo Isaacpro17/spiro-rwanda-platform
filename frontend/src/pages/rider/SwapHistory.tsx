@@ -75,7 +75,7 @@ export function SwapHistory() {
   const [isLoading, setLoading]   = useState(true)
   const [error, setError]         = useState<string | null>(null)
   const [page, setPage]           = useState(1)
-  const [totalRows, setTotalRows] = useState(0)
+  const [, setTotalRows] = useState(0)
   const [invoiceLoading, setInvoiceLoading] = useState<string | null>(null)
   const [showFilters, setShowFilters] = useState(false)
 

@@ -4,7 +4,6 @@ import { Navbar } from '../../components/layout/Navbar'
 import { Footer } from '../../components/layout/Footer'
 import { Button } from '../../components/ui/button'
 import { Battery, MapPin, Zap, Shield, Clock, TrendingUp, ArrowRight } from 'lucide-react'
-import { useScrollAnimation } from '../../hooks/useScrollAnimation'
 import { useCountUp } from '../../hooks/useCountUp'
 
 /* ── Scroll-reveal wrapper ─────────────────────────────────────────────────── */

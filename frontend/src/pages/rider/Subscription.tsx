@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom'
 import { DashboardLayout } from '../../components/layout/DashboardLayout'
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
-import { Badge } from '../../components/ui/badge'
 import {
   Check, Star, AlertCircle, Loader2, RefreshCw,
   CreditCard, Gift, Zap, XCircle,

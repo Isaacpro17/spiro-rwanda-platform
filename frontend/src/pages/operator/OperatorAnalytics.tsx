@@ -281,10 +281,10 @@ export function OperatorAnalytics() {
                   <YAxis yAxisId="left" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
                   <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} unit="K" />
                   <Tooltip
-                    formatter={(value: number, name: string) => [
-                      name === 'revenue' ? `RWF ${(value * 1000).toLocaleString()}` : value,
+                    formatter={(value: unknown, name: unknown) => [
+                      name === 'revenue' ? `RWF ${(Number(value) * 1000).toLocaleString()}` : String(value ?? ''),
                       name === 'revenue' ? 'Revenue' : 'Swaps',
-                    ]}
+                    ] as [string, string]}
                     contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: 12 }}
                   />
                   <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />

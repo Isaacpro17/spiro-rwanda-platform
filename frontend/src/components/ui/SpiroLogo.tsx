@@ -12,7 +12,6 @@
  *   <SpiroLogo className="..." />    → extra classes on the wrapper
  */
 
-import React from 'react'
 
 const SIZE_MAP = {
   xs: { box: 'w-8 h-8',   img: 'h-8 w-8' },

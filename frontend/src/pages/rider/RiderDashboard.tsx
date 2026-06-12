@@ -6,7 +6,7 @@ import { Button } from '../../components/ui/button'
 import { Badge } from '../../components/ui/badge'
 import {
   Battery, MapPin, CreditCard, History, TrendingUp, Clock,
-  Loader2, AlertCircle, RefreshCw,
+  AlertCircle, RefreshCw,
 } from 'lucide-react'
 import { api } from '../../lib/api'
 import { stationService } from '../../services/stationService'
