@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { DashboardLayout } from '../../components/layout/DashboardLayout'
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
@@ -8,6 +8,7 @@ import { Badge } from '../../components/ui/badge'
 import {
   Battery, MapPin, Clock, CheckCircle, AlertCircle,
   XCircle, RefreshCw, Loader2, CalendarClock, Info,
+  Users, LogIn, LogOut, Zap,
 } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useReservations } from '../../hooks/useReservations'
@@ -164,6 +165,275 @@ function GuidanceSteps({ steps }: { steps: string[] }) {
   )
 }
 
+// ── Walk-In Queue Card ────────────────────────────────────────────────────────
+
+interface QueueState {
+  position: number
+  estimatedWait: number
+  stationId: string
+  stationName: string
+}
+
+function WalkInQueueCard({ stations }: { stations: Station[] }) {
+  const [selectedStationId, setSelectedStationId] = useState('')
+  const [queueInfo, setQueueInfo] = useState<{ length: number; estimatedWait: number } | null>(null)
+  const [myQueue, setMyQueue] = useState<QueueState | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [restoring, setRestoring] = useState(true)  // checking queue position on mount
+  const [joining, setJoining] = useState(false)
+  const [leaving, setLeaving] = useState(false)
+  const [error, setError] = useState('')
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  // On mount: check if this rider is already in a queue (survives logout/login)
+  useEffect(() => {
+    const restore = async () => {
+      try {
+        const data = await api.get<{
+          stationId: string; stationName: string; position: number; estimatedWait: number
+        } | null>('/queue/my-position')
+        if (data && (data as any).stationId) {
+          const d = data as any
+          setMyQueue({
+            position: d.position,
+            estimatedWait: d.estimatedWait,
+            stationId: d.stationId,
+            stationName: d.stationName,
+          })
+          setSelectedStationId(d.stationId)
+        }
+      } catch { /* not in any queue */ }
+      finally { setRestoring(false) }
+    }
+    restore()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load queue status for the selected station
+  const loadQueueInfo = useCallback(async (stationId: string) => {
+    if (!stationId) return
+    setLoading(true)
+    try {
+      const data = await api.get<{ queue: string[]; length: number; estimatedWait: number }>(
+        `/queue/${stationId}`
+      )
+      setQueueInfo({ length: (data as any).length ?? 0, estimatedWait: (data as any).estimatedWait ?? 0 })
+    } catch {
+      setQueueInfo(null)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  // Poll every 15 seconds when viewing a station's queue
+  useEffect(() => {
+    if (!selectedStationId) return
+    loadQueueInfo(selectedStationId)
+    pollRef.current = setInterval(async () => {
+      loadQueueInfo(selectedStationId)
+      // Refresh own position if in queue at this station
+      if (myQueue?.stationId === selectedStationId) {
+        try {
+          const pos = await api.get<any>('/queue/my-position')
+          if (pos && (pos as any).stationId) {
+            const p = pos as any
+            setMyQueue((prev) => prev ? { ...prev, position: p.position, estimatedWait: p.estimatedWait } : prev)
+          }
+        } catch { /* ignore */ }
+      }
+    }, 15000)
+    return () => { if (pollRef.current) clearInterval(pollRef.current) }
+  }, [selectedStationId, loadQueueInfo, myQueue?.stationId])
+
+  const handleStationChange = (id: string) => {
+    setSelectedStationId(id)
+    setQueueInfo(null)
+    setError('')
+  }
+
+  const handleJoin = async () => {
+    if (!selectedStationId) return
+    setJoining(true)
+    setError('')
+    try {
+      const data = await api.post<{ position: number; estimatedWait: number }>(
+        `/queue/${selectedStationId}/join`,
+        {}
+      )
+      const station = stations.find((s) => s._id === selectedStationId)
+      setMyQueue({
+        position: (data as any).position,
+        estimatedWait: (data as any).estimatedWait,
+        stationId: selectedStationId,
+        stationName: station?.name ?? 'Station',
+      })
+      loadQueueInfo(selectedStationId)
+    } catch (err: any) {
+      setError(err.response?.data?.message ?? err.message ?? 'Failed to join queue')
+    } finally {
+      setJoining(false)
+    }
+  }
+
+  const handleLeave = async () => {
+    if (!myQueue) return
+    setLeaving(true)
+    setError('')
+    try {
+      await api.delete(`/queue/${myQueue.stationId}/leave`)
+      setMyQueue(null)
+      loadQueueInfo(myQueue.stationId)
+    } catch (err: any) {
+      setError(err.response?.data?.message ?? err.message ?? 'Failed to leave queue')
+    } finally {
+      setLeaving(false)
+    }
+  }
+
+  const activeStations = stations.filter((s) => s.availableBatteries > 0)
+
+  if (restoring) {
+    return (
+      <Card>
+        <CardContent className="pt-6 pb-6 flex items-center justify-center gap-2 text-gray-400 text-sm">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          Checking queue status…
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Users className="w-4 h-4 text-primary" />
+              Walk-In Queue
+            </CardTitle>
+            <p className="text-xs text-gray-500 mt-0.5">Already at a station? Join the live queue</p>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+
+        {/* Active queue status — shown if rider is already in a queue */}
+        {myQueue && (
+          <div className="p-4 bg-primary/5 border border-primary/20 rounded-xl space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center font-bold text-sm">
+                  {myQueue.position}
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">You're #{myQueue.position} in line</p>
+                  <p className="text-xs text-gray-500">{myQueue.stationName}</p>
+                </div>
+              </div>
+              <Badge variant="default" className="text-xs">In Queue</Badge>
+            </div>
+            <div className="flex items-center gap-1.5 text-xs text-gray-600">
+              <Clock className="w-3.5 h-3.5" />
+              Estimated wait: ~{myQueue.estimatedWait} min
+            </div>
+            <div className="flex items-start gap-2 bg-white/60 rounded-lg p-2.5 text-xs text-gray-600">
+              <Zap className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
+              Go to the operator and say your name. They will call you when it's your turn.
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleLeave}
+              disabled={leaving}
+              className="w-full text-error border-error/20 hover:bg-error/5"
+            >
+              {leaving
+                ? <><Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />Leaving…</>
+                : <><LogOut className="w-3.5 h-3.5 mr-1.5" />Leave Queue</>
+              }
+            </Button>
+          </div>
+        )}
+
+        {!myQueue && (
+          <>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Select station you're at</Label>
+              <select
+                value={selectedStationId}
+                onChange={(e) => handleStationChange(e.target.value)}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+              >
+                <option value="">Choose a station…</option>
+                {activeStations.map((s) => (
+                  <option key={s._id} value={s._id}>
+                    {s.name} — {s.availableBatteries} batteries available
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Queue info for selected station */}
+            {selectedStationId && (
+              <div className="p-3 bg-gray-50 rounded-lg flex items-center justify-between text-sm">
+                {loading ? (
+                  <div className="flex items-center gap-2 text-gray-400">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span className="text-xs">Loading queue…</span>
+                  </div>
+                ) : queueInfo ? (
+                  <>
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-1.5 text-gray-700">
+                        <Users className="w-4 h-4 text-primary" />
+                        <span className="font-medium">{queueInfo.length}</span>
+                        <span className="text-gray-500 text-xs">waiting</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-gray-500 text-xs">
+                        <Clock className="w-3.5 h-3.5" />
+                        ~{queueInfo.estimatedWait} min
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => loadQueueInfo(selectedStationId)}
+                      className="p-1 text-gray-400 hover:text-primary transition-colors"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                    </button>
+                  </>
+                ) : (
+                  <span className="text-xs text-gray-400">Could not load queue info</span>
+                )}
+              </div>
+            )}
+
+            {error && (
+              <p className="text-xs text-error flex items-center gap-1.5">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />{error}
+              </p>
+            )}
+
+            <Button
+              onClick={handleJoin}
+              disabled={!selectedStationId || joining}
+              className="w-full"
+            >
+              {joining
+                ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Joining…</>
+                : <><LogIn className="w-4 h-4 mr-2" />Join Queue</>
+              }
+            </Button>
+
+            <p className="text-xs text-gray-400 text-center">
+              Only join if you're physically at the station
+            </p>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
 // ── Page Component ─────────────────────────────────────────────────────────────
 
 export function SwapRequest() {
@@ -181,8 +451,6 @@ export function SwapRequest() {
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null)
 
   // ── Date/time helpers ──
-  // Allow picking times from 5 minutes ago so "now" is always selectable,
-  // even if the user spends a few seconds reading the form before submitting.
   const minDateTime = toInputValue(new Date(Date.now() - 5 * 60 * 1000))
   const maxDateTime = toInputValue(new Date(Date.now() + 24 * 60 * 60 * 1000))
 
@@ -228,12 +496,10 @@ export function SwapRequest() {
     if (!form.reservedTime) { setSubmitError('Please select a time'); return }
 
     const selectedTime = new Date(form.reservedTime)
-    // Allow up to 5 minutes in the past to account for form fill time
     if (selectedTime < new Date(Date.now() - 5 * 60 * 1000)) {
       setSubmitError('Please select a time no more than 5 minutes in the past')
       return
     }
-    // Must be within the 24-hour advance window
     if (selectedTime > new Date(Date.now() + 24 * 60 * 60 * 1000)) {
       setSubmitError('Reservations can only be made up to 24 hours in advance')
       return
@@ -275,8 +541,8 @@ export function SwapRequest() {
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Request Battery Swap</h1>
-            <p className="text-gray-600 mt-1">Reserve your battery swap slot at a nearby station</p>
+            <h1 className="text-3xl font-bold text-gray-900">Battery Swap</h1>
+            <p className="text-gray-600 mt-1">Reserve a slot or join the walk-in queue</p>
           </div>
           <button
             onClick={() => { loadStations(); refreshReservations() }}
@@ -297,7 +563,8 @@ export function SwapRequest() {
             ) : (
               <Card>
                 <CardHeader>
-                  <CardTitle>New Swap Request</CardTitle>
+                  <CardTitle>Reserve a Slot</CardTitle>
+                  <p className="text-xs text-gray-500 mt-0.5">Book ahead — up to 24 hours in advance</p>
                 </CardHeader>
                 <CardContent>
 
@@ -340,7 +607,6 @@ export function SwapRequest() {
                           ))}
                         </Select>
                       )}
-                      {/* Station availability info */}
                       {selectedStation && (
                         <div className="flex items-center gap-4 px-1 mt-1">
                           <div className={`flex items-center gap-1.5 text-xs font-medium ${selectedStation.availableBatteries > 0 ? 'text-success' : 'text-error'}`}>
@@ -390,6 +656,11 @@ export function SwapRequest() {
                   </form>
                 </CardContent>
               </Card>
+            )}
+
+            {/* Walk-In Queue */}
+            {!stationsLoading && stations.length > 0 && (
+              <WalkInQueueCard stations={stations} />
             )}
 
             {/* ── Guidance Steps ── */}

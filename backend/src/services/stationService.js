@@ -33,7 +33,9 @@ export async function listStations(filters = {}) {
     };
   }
 
-  return Station.find(query).populate('operatorId', 'fullName phone');
+  return Station.find(query)
+    .populate('operatorId', 'fullName phone')
+    .populate('assignedTechnicians', 'fullName phone');
 }
 
 /**

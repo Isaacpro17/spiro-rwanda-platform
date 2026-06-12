@@ -9,13 +9,28 @@ import logger from '../utils/logger.js';
 
 /**
  * GET /api/v1/technicians/my-tasks
- * Returns maintenance requests assigned to the authenticated technician.
+ * Returns maintenance requests:
+ *   1. Explicitly assigned to this technician, OR
+ *   2. Open/unassigned tasks at stations this technician is assigned to.
  * Query: status (single or comma-separated), page, limit
  */
 export async function getMyTasks(req, res, next) {
   try {
     const { status, page = 1, limit = 50 } = req.query;
-    const filter = { assignedTechnician: req.user.userId };
+    const techId = req.user.userId;
+
+    // Get stations this technician is assigned to
+    const myStations = await Station.find({ assignedTechnicians: techId }, '_id').lean();
+    const myStationIds = myStations.map((s) => s._id);
+
+    // Show tasks explicitly assigned to me OR open/unassigned tasks at my stations
+    const filter = {
+      $or: [
+        { assignedTechnician: techId },
+        { stationId: { $in: myStationIds }, assignedTechnician: { $exists: false } },
+        { stationId: { $in: myStationIds }, assignedTechnician: null },
+      ],
+    };
 
     if (status) {
       const statuses = status.split(',').map((s) => s.trim()).filter(Boolean);
@@ -35,7 +50,7 @@ export async function getMyTasks(req, res, next) {
       MaintenanceRequest.countDocuments(filter),
     ]);
 
-    logger.info('Technician fetched tasks', { userId: req.user.userId, count: tasks.length });
+    logger.info('Technician fetched tasks', { userId: techId, count: tasks.length });
 
     res.json({
       success: true,
@@ -50,24 +65,53 @@ export async function getMyTasks(req, res, next) {
 
 /**
  * PUT /api/v1/technicians/tasks/:id
- * Allows a technician to update status and notes on their assigned tasks.
- * Allowed status transitions: assigned→in_progress, in_progress→resolved
+ * Allows a technician to update status and notes on their tasks.
+ * Technicians can pick up unassigned tasks at their stations (sets assignedTechnician).
+ * Allowed status transitions: open/assigned → in_progress, in_progress → resolved
  */
 export async function updateTask(req, res, next) {
   try {
     const { status, notes } = req.body;
+    const techId = req.user.userId;
 
-    const task = await MaintenanceRequest.findOne({
-      _id: req.params.id,
-      assignedTechnician: req.user.userId,
-    });
+    const task = await MaintenanceRequest.findById(req.params.id);
 
     if (!task) {
       return res.status(404).json({
         success: false,
-        message: 'Task not found or not assigned to you.',
+        message: 'Task not found.',
         error: 'NotFound',
       });
+    }
+
+    const isAssignedToMe = task.assignedTechnician?.toString() === techId;
+    const isUnassigned = !task.assignedTechnician;
+
+    if (!isAssignedToMe && !isUnassigned) {
+      return res.status(403).json({
+        success: false,
+        message: 'This task is assigned to another technician.',
+        error: 'Forbidden',
+      });
+    }
+
+    if (isUnassigned) {
+      // Verify the technician is actually assigned to this station
+      const stationMatch = await Station.findOne({
+        _id: task.stationId,
+        assignedTechnicians: techId,
+      }).lean();
+
+      if (!stationMatch) {
+        return res.status(403).json({
+          success: false,
+          message: 'You are not assigned to the station for this task.',
+          error: 'Forbidden',
+        });
+      }
+
+      // Claim the task when picking it up
+      task.assignedTechnician = techId;
     }
 
     if (status) {
@@ -94,7 +138,7 @@ export async function updateTask(req, res, next) {
       .populate('createdByOperator', 'fullName phone')
       .lean();
 
-    logger.info('Technician updated task', { userId: req.user.userId, taskId: task._id, status });
+    logger.info('Technician updated task', { userId: techId, taskId: task._id, status });
 
     res.json({ success: true, data: populated, message: 'Task updated.', error: '' });
   } catch (err) {

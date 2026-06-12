@@ -38,10 +38,19 @@ function statusLabel(status: string) {
 interface RepairModalProps {
   battery: BatteryData
   onClose: () => void
-  onSubmit: (batteryId: string, description: string) => Promise<void>
+  onSubmit: (batteryId: string, issueType: string, description: string) => Promise<void>
 }
 
+const ISSUE_TYPES = [
+  { value: 'low_performance', label: 'Low Performance' },
+  { value: 'not_charging',    label: 'Not Charging' },
+  { value: 'physical_damage', label: 'Physical Damage' },
+  { value: 'faulty',          label: 'Faulty / Dead' },
+  { value: 'other',           label: 'Other' },
+]
+
 function RepairModal({ battery, onClose, onSubmit }: RepairModalProps) {
+  const [issueType, setIssueType] = useState('other')
   const [description, setDescription] = useState('')
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
@@ -51,7 +60,7 @@ function RepairModal({ battery, onClose, onSubmit }: RepairModalProps) {
     setSaving(true)
     setErr('')
     try {
-      await onSubmit(battery._id, description)
+      await onSubmit(battery._id, issueType, description)
       onClose()
     } catch (e: any) {
       setErr(e.message || 'Failed to submit repair request')
@@ -72,6 +81,18 @@ function RepairModal({ battery, onClose, onSubmit }: RepairModalProps) {
         <p className="text-sm text-gray-600 mb-4">
           Battery: <span className="font-mono font-medium">{battery.serialNumber}</span>
         </p>
+        <div className="space-y-1.5 mb-3">
+          <Label htmlFor="repair-type" className="text-xs">Issue Type</Label>
+          <Select
+            id="repair-type"
+            value={issueType}
+            onChange={(e) => setIssueType(e.target.value)}
+          >
+            {ISSUE_TYPES.map((t) => (
+              <option key={t.value} value={t.value}>{t.label}</option>
+            ))}
+          </Select>
+        </div>
         <div className="space-y-1.5 mb-4">
           <Label htmlFor="repair-desc" className="text-xs">Issue Description</Label>
           <textarea
@@ -228,8 +249,8 @@ export function Inventory() {
     }
   }
 
-  const handleRepairSubmit = async (batteryId: string, description: string) => {
-    await api.post(`/batteries/${batteryId}/repair`, { description })
+  const handleRepairSubmit = async (batteryId: string, issueType: string, description: string) => {
+    await api.post(`/batteries/${batteryId}/repair`, { issueType, description, priority: 'medium' })
     setBatteries((prev) => prev.map((b) => b._id === batteryId ? { ...b, status: 'repair' } : b))
   }
 

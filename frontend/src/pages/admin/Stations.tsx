@@ -8,7 +8,7 @@ import { Badge } from '../../components/ui/badge'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../../components/ui/table'
 import {
   MapPin, Plus, Edit2, Search, AlertCircle, Loader2, RefreshCw,
-  ChevronLeft, ChevronRight, X, Activity, Battery, Power,
+  ChevronLeft, ChevronRight, X, Activity, Battery, Power, Users,
 } from 'lucide-react'
 import { api } from '../../lib/api'
 import type { StationDetail } from '../../types'
@@ -23,6 +23,15 @@ function statusVariant(s: string) {
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+interface StaffUser {
+  _id: string
+  fullName: string
+  phone: string
+  email: string
 }
 
 // ── Station Modal ─────────────────────────────────────────────────────────────
@@ -164,6 +173,178 @@ function StationModal({ station, onClose, onSave }: StationModalProps) {
   )
 }
 
+// ── Assign Staff Modal ────────────────────────────────────────────────────────
+
+interface AssignStaffModalProps {
+  station: StationDetail
+  onClose: () => void
+  onSave: () => void
+}
+
+function AssignStaffModal({ station, onClose, onSave }: AssignStaffModalProps) {
+  const [operators, setOperators] = useState<StaffUser[]>([])
+  const [technicians, setTechnicians] = useState<StaffUser[]>([])
+  const [loadingStaff, setLoadingStaff] = useState(true)
+
+  // Current selections
+  const currentOperatorId = station.operatorId?._id ?? ''
+  const currentTechIds: string[] = station.assignedTechnicians?.map((t) => t._id) ?? []
+
+  const [selectedOperator, setSelectedOperator] = useState<string>(currentOperatorId)
+  const [selectedTechs, setSelectedTechs] = useState<string[]>(currentTechIds)
+
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    const load = async () => {
+      setLoadingStaff(true)
+      try {
+        const [opRes, techRes] = await Promise.all([
+          api.get<any>('/users?role=operator&limit=100'),
+          api.get<any>('/users?role=technician&limit=100'),
+        ])
+        setOperators((opRes as any)?.users ?? opRes ?? [])
+        setTechnicians((techRes as any)?.users ?? techRes ?? [])
+      } catch {
+        setError('Failed to load staff list')
+      } finally {
+        setLoadingStaff(false)
+      }
+    }
+    load()
+  }, [])
+
+  const toggleTech = (id: string) => {
+    setSelectedTechs((prev) =>
+      prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]
+    )
+  }
+
+  const handleSave = async () => {
+    setSaving(true)
+    setError('')
+    try {
+      await api.put(`/stations/${station._id}`, {
+        operatorId: selectedOperator || null,
+        assignedTechnicians: selectedTechs,
+      })
+      onSave()
+      onClose()
+    } catch (err: any) {
+      setError(err.response?.data?.message ?? err.message ?? 'Failed to assign staff')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 overflow-y-auto py-8" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-lg mx-4 my-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h2 className="text-lg font-semibold">Assign Staff</h2>
+            <p className="text-xs text-gray-500 mt-0.5">{station.name}</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {loadingStaff ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-6 h-6 text-primary animate-spin" />
+          </div>
+        ) : (
+          <div className="space-y-5">
+
+            {/* Operator */}
+            <div>
+              <Label className="text-xs font-medium text-gray-700 block mb-2">
+                Station Operator
+                <span className="text-gray-400 font-normal ml-1">(select one)</span>
+              </Label>
+              <select
+                value={selectedOperator}
+                onChange={(e) => setSelectedOperator(e.target.value)}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+              >
+                <option value="">— No operator assigned —</option>
+                {operators.map((op) => (
+                  <option key={op._id} value={op._id}>
+                    {op.fullName} · {op.phone}
+                  </option>
+                ))}
+              </select>
+              {operators.length === 0 && (
+                <p className="text-xs text-gray-400 mt-1">No operators found. Create an operator account first.</p>
+              )}
+            </div>
+
+            {/* Technicians */}
+            <div>
+              <Label className="text-xs font-medium text-gray-700 block mb-2">
+                Technicians
+                <span className="text-gray-400 font-normal ml-1">(select one or more)</span>
+              </Label>
+              {technicians.length === 0 ? (
+                <p className="text-xs text-gray-400">No technicians found. Create a technician account first.</p>
+              ) : (
+                <div className="border border-gray-200 rounded-lg divide-y max-h-56 overflow-y-auto">
+                  {technicians.map((tech) => {
+                    const checked = selectedTechs.includes(tech._id)
+                    return (
+                      <label
+                        key={tech._id}
+                        className={`flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors ${
+                          checked ? 'bg-primary/5' : ''
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleTech(tech._id)}
+                          className="w-4 h-4 accent-primary"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900">{tech.fullName}</p>
+                          <p className="text-xs text-gray-500">{tech.phone}</p>
+                        </div>
+                        {checked && (
+                          <Badge variant="default" className="text-xs shrink-0">Assigned</Badge>
+                        )}
+                      </label>
+                    )
+                  })}
+                </div>
+              )}
+              {selectedTechs.length > 0 && (
+                <p className="text-xs text-primary mt-1.5">
+                  {selectedTechs.length} technician{selectedTechs.length !== 1 ? 's' : ''} selected
+                </p>
+              )}
+            </div>
+
+            {error && (
+              <p className="text-xs text-error flex items-center gap-1">
+                <AlertCircle className="w-3.5 h-3.5" />{error}
+              </p>
+            )}
+
+            <div className="flex gap-2 pt-1">
+              <Button variant="outline" size="sm" onClick={onClose} className="flex-1">Cancel</Button>
+              <Button size="sm" onClick={handleSave} disabled={saving} className="flex-1">
+                {saving && <Loader2 className="w-4 h-4 animate-spin mr-1" />}
+                Save Assignment
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 const PAGE_SIZE = 20
@@ -179,6 +360,7 @@ export function Stations() {
   const [statusFilter, setStatusFilter] = useState('')
 
   const [modalStation, setModalStation] = useState<StationDetail | null | 'new'>()
+  const [assignStation, setAssignStation] = useState<StationDetail | null>(null)
   const [statusChangingId, setStatusChangingId] = useState<string | null>(null)
 
   const loadData = useCallback(async (p: number) => {
@@ -336,67 +518,96 @@ export function Stations() {
                         <TableHead>Status</TableHead>
                         <TableHead>Batteries</TableHead>
                         <TableHead>Operator</TableHead>
+                        <TableHead>Technicians</TableHead>
                         <TableHead>Created</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {stations.map((station) => (
-                        <TableRow key={station._id} className="hover:bg-gray-50 transition-colors">
-                          <TableCell>
-                            <div>
-                              <p className="text-sm font-medium text-gray-900">{station.name}</p>
-                              {station.address && (
-                                <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-                                  <MapPin className="w-3 h-3" />{station.address}
-                                </p>
+                      {stations.map((station) => {
+                        const techList = station.assignedTechnicians ?? []
+                        return (
+                          <TableRow key={station._id} className="hover:bg-gray-50 transition-colors">
+                            <TableCell>
+                              <div>
+                                <p className="text-sm font-medium text-gray-900">{station.name}</p>
+                                {station.address && (
+                                  <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                                    <MapPin className="w-3 h-3" />{station.address}
+                                  </p>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <span className="text-xs font-mono bg-gray-100 px-2 py-0.5 rounded">
+                                {station.stationCode ?? '—'}
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={statusVariant(station.status)} className="text-xs capitalize">
+                                {station.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-sm text-gray-700">
+                                <span className="text-success font-medium">{station.availableBatteries}</span>
+                                <span className="text-gray-400"> / {station.totalSlots}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-sm text-gray-600">
+                              {(station.operatorId as any)?.fullName ?? (
+                                <span className="text-gray-300 italic">Unassigned</span>
                               )}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <span className="text-xs font-mono bg-gray-100 px-2 py-0.5 rounded">
-                              {station.stationCode ?? '—'}
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={statusVariant(station.status)} className="text-xs capitalize">
-                              {station.status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <div className="text-sm text-gray-700">
-                              <span className="text-success font-medium">{station.availableBatteries}</span>
-                              <span className="text-gray-400"> / {station.totalSlots}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-sm text-gray-600">
-                            {(station.operatorId as any)?.fullName ?? <span className="text-gray-300 italic">Unassigned</span>}
-                          </TableCell>
-                          <TableCell className="text-sm text-gray-500">{fmtDate(station.createdAt)}</TableCell>
-                          <TableCell>
-                            <div className="flex items-center justify-end gap-1">
-                              <button
-                                onClick={() => setModalStation(station)}
-                                className="p-1.5 rounded-lg text-gray-400 hover:text-primary hover:bg-primary/5 transition-colors"
-                                title="Edit"
-                              >
-                                <Edit2 className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                onClick={() => handleStatusCycle(station)}
-                                disabled={statusChangingId === station._id}
-                                className="p-1.5 rounded-lg text-gray-400 hover:text-warning hover:bg-warning/5 transition-colors"
-                                title="Cycle Status"
-                              >
-                                {statusChangingId === station._id
-                                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                  : <Power className="w-3.5 h-3.5" />
-                                }
-                              </button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                            </TableCell>
+                            <TableCell>
+                              {techList.length === 0 ? (
+                                <span className="text-xs text-gray-300 italic">None</span>
+                              ) : (
+                                <div className="flex flex-col gap-0.5">
+                                  {techList.slice(0, 2).map((t) => (
+                                    <span key={t._id} className="text-xs text-gray-600">
+                                      {t.fullName}
+                                    </span>
+                                  ))}
+                                  {techList.length > 2 && (
+                                    <span className="text-xs text-gray-400">+{techList.length - 2} more</span>
+                                  )}
+                                </div>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-sm text-gray-500">{fmtDate(station.createdAt)}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center justify-end gap-1">
+                                <button
+                                  onClick={() => setAssignStation(station)}
+                                  className="p-1.5 rounded-lg text-gray-400 hover:text-primary hover:bg-primary/5 transition-colors"
+                                  title="Assign Staff"
+                                >
+                                  <Users className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => setModalStation(station)}
+                                  className="p-1.5 rounded-lg text-gray-400 hover:text-primary hover:bg-primary/5 transition-colors"
+                                  title="Edit"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => handleStatusCycle(station)}
+                                  disabled={statusChangingId === station._id}
+                                  className="p-1.5 rounded-lg text-gray-400 hover:text-warning hover:bg-warning/5 transition-colors"
+                                  title="Cycle Status"
+                                >
+                                  {statusChangingId === station._id
+                                    ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    : <Power className="w-3.5 h-3.5" />
+                                  }
+                                </button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
                     </TableBody>
                   </Table>
                 </div>
@@ -420,11 +631,20 @@ export function Stations() {
         </Card>
       </div>
 
-      {/* Modal */}
+      {/* Edit / Create Station Modal */}
       {(modalStation === 'new' || (modalStation && typeof modalStation === 'object')) && (
         <StationModal
           station={modalStation === 'new' ? null : modalStation as StationDetail}
           onClose={() => setModalStation(undefined)}
+          onSave={() => loadData(page)}
+        />
+      )}
+
+      {/* Assign Staff Modal */}
+      {assignStation && (
+        <AssignStaffModal
+          station={assignStation}
+          onClose={() => setAssignStation(null)}
           onSave={() => loadData(page)}
         />
       )}

@@ -286,7 +286,7 @@ export function Tasks() {
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Maintenance Tasks</h1>
-            <p className="text-gray-600 mt-1">View and manage your assigned maintenance work</p>
+            <p className="text-gray-600 mt-1">Your assigned tasks and open requests at your stations</p>
           </div>
           <button
             onClick={() => loadTasks(tab, page)}
@@ -345,7 +345,7 @@ export function Tasks() {
                 </div>
                 <p className="text-sm font-medium text-gray-700">No tasks found</p>
                 <p className="text-xs text-gray-500">
-                  {tab === 'pending' ? 'No open tasks assigned to you' :
+                  {tab === 'pending' ? 'No open tasks at your assigned stations' :
                    tab === 'in_progress' ? 'No tasks currently in progress' :
                    'No resolved tasks yet'}
                 </p>

@@ -32,7 +32,7 @@ export async function listBatteries(query) {
 
   const [batteries, total] = await Promise.all([
     Battery.find(filter)
-      .populate('currentStationId', 'name location')
+      .populate('stationId', 'name address')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
@@ -58,20 +58,20 @@ export async function listBatteries(query) {
  */
 export async function getBattery(batteryId) {
   const battery = await Battery.findById(batteryId)
-    .populate('currentStationId', 'name location address')
+    .populate('stationId', 'name address')
     .lean();
 
   if (!battery) {
     throw new NotFoundError('Battery not found');
   }
 
-  // Get maintenance history
-  const maintenanceHistory = await MaintenanceRequest.find({
-    batteryId,
-  })
-    .sort({ createdAt: -1 })
-    .limit(10)
-    .lean();
+  // Get maintenance history for this battery's station
+  const maintenanceHistory = battery.stationId
+    ? await MaintenanceRequest.find({ stationId: battery.stationId._id ?? battery.stationId })
+        .sort({ createdAt: -1 })
+        .limit(10)
+        .lean()
+    : [];
 
   return {
     ...battery,
@@ -108,16 +108,9 @@ export async function createBattery(data) {
 
   const battery = await Battery.create({
     serialNumber,
-    qrCode,
-    manufacturer,
-    model,
-    capacity,
-    currentStationId,
+    stationId: currentStationId || undefined,
     status: 'available',
-    healthStatus: 'healthy',
     chargeLevel: 100,
-    cycleCount: 0,
-    lastChargedAt: new Date(),
   });
 
   logger.info('Battery created', { batteryId: battery._id, serialNumber });
@@ -138,8 +131,8 @@ export async function updateBattery(batteryId, updates) {
   }
 
   // Validate station if being updated
-  if (updates.currentStationId) {
-    const station = await Station.findById(updates.currentStationId);
+  if (updates.stationId) {
+    const station = await Station.findById(updates.stationId);
     if (!station) {
       throw new NotFoundError('Station not found');
     }
@@ -148,12 +141,9 @@ export async function updateBattery(batteryId, updates) {
   // Don't allow updating certain fields directly
   const allowedUpdates = [
     'status',
-    'healthStatus',
     'chargeLevel',
-    'currentStationId',
-    'manufacturer',
-    'model',
-    'capacity',
+    'stationId',
+    'isFaulty',
   ];
 
   Object.keys(updates).forEach((key) => {
@@ -249,13 +239,16 @@ export async function createRepairRequest(batteryId, reportedBy, data) {
     throw new NotFoundError('Battery not found');
   }
 
-  const { issueType, description, priority } = data;
+  const { issueType = 'other', description, priority } = data;
 
+  if (!description || !description.trim()) {
+    throw new ValidationError('Description is required');
+  }
   if (!battery.stationId) {
-    throw new Error('Battery has no associated station — cannot create repair request');
+    throw new ValidationError('Battery has no associated station — assign it to a station before creating a repair request');
   }
 
-  const urgencyMap = { critical: 'critical', high: 'high', low: 'low' };
+  const urgencyMap = { critical: 'critical', high: 'high', low: 'low', medium: 'medium' };
   const urgency = urgencyMap[priority] || 'medium';
 
   const maintenanceRequest = await MaintenanceRequest.create({
@@ -334,7 +327,7 @@ export async function getBatteryStats() {
  * @returns {Promise<Object>} Update result
  */
 export async function bulkUpdateStatus(batteryIds, status) {
-  const validStatuses = ['available', 'in_use', 'charging', 'maintenance', 'retired'];
+  const validStatuses = ['available', 'in_use', 'charging', 'faulty', 'repair'];
   if (!validStatuses.includes(status)) {
     throw new ValidationError(`Invalid status. Must be one of: ${validStatuses.join(', ')}`);
   }

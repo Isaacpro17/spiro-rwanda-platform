@@ -20,6 +20,7 @@ interface DashboardStats {
   swapsThisMonth: number | null
   activePlan: string | null
   firstName: string
+  currentBatterySerial: string | null  // serial number of battery rider currently holds
 }
 
 interface RecentSwapCard {
@@ -119,12 +120,19 @@ async function loadDashboard(): Promise<{
     stationService.getRiderLocation(),
   ])
 
+  // The chargedBatteryId from the most recent completed swap is the battery
+  // the rider currently holds — it becomes the depleted battery on the next swap.
+  const lastSwap = Array.isArray(recentSwapsRaw) ? recentSwapsRaw[0] : null
+  const currentBatterySerial: string | null =
+    (lastSwap?.chargedBatteryId as any)?.serialNumber ?? null
+
   const stats: DashboardStats = {
-    firstName:      profileRes.user?.fullName?.split(' ')[0] || 'Rider',
-    batteryLevel:   profileRes.batteryLevel ?? null,
-    walletBalance:  profileRes.profile?.walletBalance  ?? null,
-    swapsThisMonth: Array.isArray(monthSwaps) ? monthSwaps.length : null,
-    activePlan:     profileRes.profile?.subscriptionPlanId?.name ?? 'No Plan',
+    firstName:            profileRes.user?.fullName?.split(' ')[0] || 'Rider',
+    batteryLevel:         profileRes.batteryLevel ?? null,
+    walletBalance:        profileRes.profile?.walletBalance  ?? null,
+    swapsThisMonth:       Array.isArray(monthSwaps) ? monthSwaps.length : null,
+    activePlan:           profileRes.profile?.subscriptionPlanId?.name ?? 'No Plan',
+    currentBatterySerial,
   }
 
   const recentSwaps: RecentSwapCard[] = (recentSwapsRaw ?? []).map((s: any) => ({
@@ -227,10 +235,15 @@ export function RiderDashboard() {
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600">Battery Level</p>
+                      <p className="text-sm font-medium text-gray-600">My Battery</p>
                       <p className="text-2xl font-bold text-gray-900 mt-1">
                         {stats?.batteryLevel != null ? `${stats.batteryLevel}%` : '—'}
                       </p>
+                      {stats?.currentBatterySerial && (
+                        <p className="text-xs font-mono text-gray-400 mt-0.5">
+                          SN: {stats.currentBatterySerial}
+                        </p>
+                      )}
                     </div>
                     <div className="w-12 h-12 bg-success/10 rounded-full flex items-center justify-center">
                       <Battery className="w-6 h-6 text-success" />

@@ -3,14 +3,13 @@
  * @description Battery swap management: reservations, completions, cancellations.
  */
 
-import mongoose from 'mongoose';
 import crypto from 'crypto';
 import SwapTransaction from '../models/SwapTransaction.js';
 import SlotReservation from '../models/SlotReservation.js';
 import Station from '../models/Station.js';
 import Battery from '../models/Battery.js';
 import { ValidationError, NotFoundError } from '../middleware/errorHandler.js';
-import { broadcastQueueUpdate } from './queueService.js';
+import { broadcastQueueUpdate, leaveQueue } from './queueService.js';
 import logger from '../utils/logger.js';
 
 const MAX_RESERVATION_HOURS = 24;
@@ -81,58 +80,85 @@ export async function createReservation(riderId, stationId, requestedTime) {
  * @returns {Promise<SwapTransaction>}
  */
 export async function completeSwap(riderId, stationId, depletedBatteryId, chargedBatteryId, io) {
-  const session = await mongoose.startSession();
-  session.startTransaction();
+  // ── Pre-validate all IDs before writing anything ────────────────────────────
+  // Doing this outside a transaction means we don't need a MongoDB replica set,
+  // while still guaranteeing consistency: if validation passes, all writes below
+  // are safe to execute sequentially.
+  const [stationDoc, depletedBattery, chargedBattery] = await Promise.all([
+    Station.findById(stationId).lean(),
+    Battery.findById(depletedBatteryId).lean(),
+    Battery.findById(chargedBatteryId).lean(),
+  ]);
+
+  if (!stationDoc)       throw new NotFoundError('Station not found');
+  if (!depletedBattery)  throw new NotFoundError('Depleted battery not found — verify the serial number');
+  if (!chargedBattery)   throw new NotFoundError('Charged battery not found');
+  if (chargedBattery.status !== 'available') {
+    throw new ValidationError(
+      `Battery ${chargedBattery.serialNumber} is not available for swapping (current status: ${chargedBattery.status})`
+    );
+  }
+
+  // ── Write phase ─────────────────────────────────────────────────────────────
+  const startTime = new Date();
+  const swapCode  = `SWP${Date.now()}`;
+
+  // Create the swap record
+  const swap = await SwapTransaction.create({
+    riderId, stationId, depletedBatteryId, chargedBatteryId,
+    startTime, status: 'in_progress', swapCode,
+  });
+
+  // Update battery statuses and station inventory in parallel.
+  // Depleted battery arrives at the station for charging (set stationId).
+  // Charged battery leaves with the rider (clear stationId).
+  await Promise.all([
+    Battery.findByIdAndUpdate(depletedBatteryId, {
+      status: 'charging',
+      stationId: stationId,
+      lastSwapAt: new Date(),
+    }),
+    Battery.findByIdAndUpdate(chargedBatteryId, {
+      status: 'in_use',
+      stationId: null,
+      lastSwapAt: new Date(),
+    }),
+    Station.findByIdAndUpdate(stationId, {
+      $inc: { availableBatteries: -1, chargingBatteries: 1 },
+    }),
+  ]);
+
+  // Mark swap complete
+  const endTime       = new Date();
+  const durationMinutes = Math.round((endTime - startTime) / 60000) || 1;
+  await SwapTransaction.findByIdAndUpdate(swap._id, {
+    status: 'completed', endTime, durationMinutes,
+  });
+
+  // ── Post-swap cleanup and broadcasts (best-effort) ───────────────────────────
+  try {
+    // Remove rider from live walk-in queue — they've been served
+    await leaveQueue(stationId, riderId);
+  } catch (queueErr) {
+    logger.warn('Could not remove rider from queue after swap', { riderId, error: queueErr.message });
+  }
 
   try {
-    const startTime = new Date();
-    const swapCode = `SWP${Date.now()}`;
-
-    // Create swap transaction
-    const [swap] = await SwapTransaction.create(
-      [{ riderId, stationId, depletedBatteryId, chargedBatteryId, startTime, status: 'in_progress', swapCode }],
-      { session }
-    );
-
-    // Update depleted battery → charging
-    await Battery.findByIdAndUpdate(depletedBatteryId, { status: 'charging', lastSwapAt: new Date() }, { session });
-
-    // Update charged battery → in_use
-    await Battery.findByIdAndUpdate(chargedBatteryId, { status: 'in_use', lastSwapAt: new Date() }, { session });
-
-    // Decrement available batteries
-    await Station.findByIdAndUpdate(stationId, { $inc: { availableBatteries: -1 } }, { session });
-
-    // Mark swap complete
-    const endTime = new Date();
-    const durationMinutes = Math.round((endTime - startTime) / 60000) || 1;
-    await SwapTransaction.findByIdAndUpdate(
-      swap._id,
-      { status: 'completed', endTime, durationMinutes },
-      { session }
-    );
-
-    await session.commitTransaction();
-
-    // Broadcast inventory update
     if (io) {
-      const station = await Station.findById(stationId);
+      const updated = await Station.findById(stationId).lean();
       io.to(`station:${stationId}`).emit('station:inventory_update', {
         stationId,
-        available: station?.availableBatteries,
+        available: updated?.availableBatteries,
+        charging:  updated?.chargingBatteries,
       });
     }
-
     await broadcastQueueUpdate(stationId, io);
-
-    logger.info('Swap completed', { swapId: swap._id, riderId, stationId });
-    return swap;
-  } catch (err) {
-    await session.abortTransaction();
-    throw err;
-  } finally {
-    session.endSession();
+  } catch (broadcastErr) {
+    logger.warn('Swap completed but broadcast failed', { swapId: swap._id, error: broadcastErr.message });
   }
+
+  logger.info('Swap completed', { swapId: swap._id, riderId, stationId });
+  return swap;
 }
 
 /**

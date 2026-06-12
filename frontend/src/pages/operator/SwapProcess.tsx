@@ -8,16 +8,39 @@ import { Select } from '../../components/ui/select'
 import { Badge } from '../../components/ui/badge'
 import {
   Search, RefreshCw, Loader2, AlertCircle, CheckCircle2,
-  Users, Zap, User, Battery,
+  Users, Zap, User, Battery, Calendar, Clock, ChevronRight, UserX,
 } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../contexts/AuthContext'
-import type { StationDetail, BatteryData, QueueStatus } from '../../types'
+import type { StationDetail, BatteryData, QueueStatus, StationReservation } from '../../types'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface RiderLookup { _id: string; fullName: string; phone: string }
 interface SwapResult { swapCode: string; _id: string }
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+
+function timeUntil(iso: string) {
+  const diff = new Date(iso).getTime() - Date.now()
+  if (diff < 0) {
+    const mins = Math.abs(Math.floor(diff / 60000))
+    return mins < 60 ? `${mins}m overdue` : 'overdue'
+  }
+  const mins = Math.floor(diff / 60000)
+  if (mins < 60) return `in ${mins}m`
+  const hrs = Math.floor(mins / 60)
+  return `in ${hrs}h ${mins % 60}m`
+}
+
+function formatTime(iso: string) {
+  return new Date(iso).toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit' })
+}
+
+function isNearNow(iso: string) {
+  const diff = Math.abs(new Date(iso).getTime() - Date.now())
+  return diff < 30 * 60 * 1000 // within 30 minutes
+}
 
 // ── Success Panel ─────────────────────────────────────────────────────────────
 
@@ -44,20 +67,28 @@ function SuccessPanel({ result, onReset }: { result: SwapResult; onReset: () => 
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
+type RightTab = 'reservations' | 'queue'
+
 export function SwapProcess() {
   const { user } = useAuth()
   const [station, setStation] = useState<StationDetail | null>(null)
   const [queue, setQueue] = useState<QueueStatus | null>(null)
+  const [reservations, setReservations] = useState<StationReservation[]>([])
   const [availableBatteries, setAvailableBatteries] = useState<BatteryData[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [rightTab, setRightTab] = useState<RightTab>('reservations')
 
   // Form state
   const [riderPhone, setRiderPhone] = useState('')
   const [rider, setRider] = useState<RiderLookup | null>(null)
+  const [activeReservationId, setActiveReservationId] = useState<string | null>(null)
   const [riderError, setRiderError] = useState('')
   const [lookingUpRider, setLookingUpRider] = useState(false)
   const [depletedBattery, setDepletedBattery] = useState('')
+  // _id resolved from auto-lookup or search — used for submission instead of serial string
+  const [depletedBatteryResolvedId, setDepletedBatteryResolvedId] = useState<string | null>(null)
+  const [depletedBatterySuggestion, setDepletedBatterySuggestion] = useState<{ serialNumber: string; chargeLevel: number } | null>(null)
   const [chargedBattery, setChargedBattery] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState('')
@@ -79,6 +110,13 @@ export function SwapProcess() {
     } catch { /* ignore */ }
   }, [])
 
+  const loadReservations = useCallback(async (stationId: string) => {
+    try {
+      const result = await api.get<any>(`/stations/${stationId}/reservations?upcoming=true&limit=20`)
+      setReservations(result?.reservations ?? [])
+    } catch { /* ignore */ }
+  }, [])
+
   const loadAvailableBatteries = useCallback(async (stationId: string) => {
     try {
       const result = await api.get<any>(`/batteries?stationId=${stationId}&status=available&limit=50`)
@@ -93,34 +131,58 @@ export function SwapProcess() {
       const s = await loadStation()
       if (!s) throw new Error('No station assigned to your account')
       setStation(s)
-      await Promise.all([loadQueue(s._id), loadAvailableBatteries(s._id)])
+      await Promise.all([
+        loadQueue(s._id),
+        loadReservations(s._id),
+        loadAvailableBatteries(s._id),
+      ])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load data')
     } finally {
       setIsLoading(false)
     }
-  }, [loadStation, loadQueue, loadAvailableBatteries])
+  }, [loadStation, loadQueue, loadReservations, loadAvailableBatteries])
 
   useEffect(() => { initialLoad() }, [initialLoad])
 
-  // 30-second queue polling
+  // 30-second polling for queue and reservations
   useEffect(() => {
     if (!station) return
     pollRef.current = setInterval(() => {
       loadQueue(station._id)
+      loadReservations(station._id)
       loadAvailableBatteries(station._id)
     }, 30000)
     return () => { if (pollRef.current) clearInterval(pollRef.current) }
-  }, [station, loadQueue, loadAvailableBatteries])
+  }, [station, loadQueue, loadReservations, loadAvailableBatteries])
+
+  const fetchLastBattery = useCallback(async (riderId: string) => {
+    setDepletedBatterySuggestion(null)
+    setDepletedBatteryResolvedId(null)
+    try {
+      const battery = await api.get<{ _id: string; serialNumber: string; chargeLevel: number } | null>(
+        `/swaps/rider/${riderId}/last-battery`
+      )
+      if (battery?.serialNumber) {
+        setDepletedBatterySuggestion(battery)
+        setDepletedBattery(battery.serialNumber)
+        setDepletedBatteryResolvedId(battery._id)  // store the real ObjectId
+      }
+    } catch { /* silently ignore — field stays blank for manual entry */ }
+  }, [])
 
   const lookupRider = async () => {
     if (!riderPhone.trim()) { setRiderError('Enter a phone number'); return }
     setLookingUpRider(true)
     setRiderError('')
     setRider(null)
+    setActiveReservationId(null)
+    setDepletedBatterySuggestion(null)
+    setDepletedBattery('')
     try {
       const found = await api.get<RiderLookup>(`/operators/rider-lookup?phone=${encodeURIComponent(riderPhone.trim())}`)
       setRider(found)
+      fetchLastBattery(found._id)
     } catch (err: any) {
       setRiderError(err.message || 'Rider not found')
     } finally {
@@ -128,29 +190,74 @@ export function SwapProcess() {
     }
   }
 
-  const handleProcessQueueRider = (riderId: string) => {
-    // Pre-fill riderId; operator still needs to do the lookup for full name display
-    // since queue returns raw IDs. Instead, prompt operator to enter phone.
-    setRiderPhone('')
-    setRider({ _id: riderId, fullName: `Rider ID: ...${riderId.slice(-6)}`, phone: '' })
+  // Called when operator clicks "Process" on a reservation
+  const handleProcessReservation = (res: StationReservation) => {
+    const riderObj = res.riderId as { _id: string; fullName: string; phone: string }
+    setRider({
+      _id: riderObj._id,
+      fullName: riderObj.fullName,
+      phone: riderObj.phone ?? '',
+    })
+    setActiveReservationId(res._id)
+    setRiderPhone(riderObj.phone ?? '')
     setDepletedBattery('')
+    setDepletedBatteryResolvedId(null)
+    setDepletedBatterySuggestion(null)
     setChargedBattery('')
     setFormError('')
+    setRiderError('')
+    fetchLastBattery(riderObj._id)
+  }
+
+  // Called when operator removes a rider from the live queue
+  const handleRemoveFromQueue = async (riderId: string) => {
+    if (!station) return
+    try {
+      await api.delete(`/queue/${station._id}/riders/${riderId}`)
+      await loadQueue(station._id)
+    } catch { /* ignore — queue will refresh on next poll */ }
+  }
+
+  // Called when operator clicks "Select" in the live queue
+  const handleProcessQueueRider = (riderId: string) => {
+    setRider({ _id: riderId, fullName: `Rider …${riderId.slice(-6)}`, phone: '' })
+    setActiveReservationId(null)
+    setDepletedBattery('')
+    setDepletedBatteryResolvedId(null)
+    setDepletedBatterySuggestion(null)
+    setChargedBattery('')
+    setFormError('')
+    fetchLastBattery(riderId)
   }
 
   const handleSubmit = async () => {
-    if (!rider) { setFormError('Look up a rider first'); return }
-    if (!depletedBattery.trim()) { setFormError('Enter the depleted battery serial number or ID'); return }
-    if (!chargedBattery) { setFormError('Select the charged battery to give out'); return }
+    if (!rider)                   { setFormError('Look up a rider first'); return }
+    if (!depletedBattery.trim())  { setFormError('Enter the depleted battery serial number'); return }
+    if (!chargedBattery)          { setFormError('Select the charged battery to give out'); return }
     if (!station) return
 
     setSubmitting(true)
     setFormError('')
     try {
-      // Find battery by serial or ID
-      const depBatteries = await api.get<any>(`/batteries?stationId=${station._id}&search=${encodeURIComponent(depletedBattery.trim())}&limit=1`)
-      const depBatteryList = depBatteries?.batteries ?? depBatteries ?? []
-      const depBatteryId = depBatteryList[0]?._id ?? depletedBattery.trim()
+      // Resolve depleted battery ObjectId ─────────────────────────────────────
+      // Priority 1: already resolved from auto-lookup (fetchLastBattery)
+      let depBatteryId = depletedBatteryResolvedId
+
+      if (!depBatteryId) {
+        // Priority 2: search across ALL batteries by serial (no stationId filter —
+        // the depleted battery is with the rider, not at the station)
+        const searchResult = await api.get<any>(
+          `/batteries?search=${encodeURIComponent(depletedBattery.trim())}&limit=1`
+        )
+        const found = searchResult?.batteries ?? searchResult ?? []
+        depBatteryId = found[0]?._id ?? null
+      }
+
+      if (!depBatteryId) {
+        setFormError(`Battery "${depletedBattery.trim()}" not found in the system. Verify the serial number.`)
+        setSubmitting(false)
+        return
+      }
 
       const result = await api.post<SwapResult>('/swaps/complete', {
         riderId: rider._id,
@@ -159,11 +266,25 @@ export function SwapProcess() {
         chargedBatteryId: chargedBattery,
       })
       setSwapResult(result)
-      await Promise.all([loadQueue(station._id), loadAvailableBatteries(station._id)])
+
+      // Cancel the reservation now that the swap is done
+      if (activeReservationId) {
+        try {
+          await api.delete(`/swaps/reserve/${activeReservationId}`)
+        } catch { /* best-effort — auto-expire will clean up anyway */ }
+      }
+
+      await Promise.all([
+        loadQueue(station._id),
+        loadReservations(station._id),
+        loadAvailableBatteries(station._id),
+      ])
       const s = await loadStation()
       if (s) setStation(s)
     } catch (err: any) {
-      setFormError(err.message || 'Failed to complete swap. Please verify battery IDs.')
+      // Extract the backend's actual error message from the Axios response envelope
+      const msg = err?.response?.data?.message || err?.message || 'Failed to complete swap'
+      setFormError(msg)
     } finally {
       setSubmitting(false)
     }
@@ -172,8 +293,11 @@ export function SwapProcess() {
   const resetForm = () => {
     setRiderPhone('')
     setRider(null)
+    setActiveReservationId(null)
     setRiderError('')
     setDepletedBattery('')
+    setDepletedBatteryResolvedId(null)
+    setDepletedBatterySuggestion(null)
     setChargedBattery('')
     setFormError('')
     setSwapResult(null)
@@ -188,6 +312,9 @@ export function SwapProcess() {
       </DashboardLayout>
     )
   }
+
+  const queueCount = queue?.length ?? 0
+  const reservationCount = reservations.length
 
   return (
     <DashboardLayout>
@@ -218,7 +345,7 @@ export function SwapProcess() {
 
         <div className="grid lg:grid-cols-2 gap-6">
 
-          {/* Left: swap form or success */}
+          {/* ── Left: swap form or success ── */}
           {swapResult ? (
             <SuccessPanel result={swapResult} onReset={resetForm} />
           ) : (
@@ -228,14 +355,25 @@ export function SwapProcess() {
               </CardHeader>
               <CardContent className="space-y-4">
 
-                {/* Step 1: Rider lookup */}
+                {/* Active reservation banner */}
+                {activeReservationId && (
+                  <div className="flex items-center gap-2 p-3 bg-primary/5 border border-primary/20 rounded-lg text-sm">
+                    <Calendar className="w-4 h-4 text-primary shrink-0" />
+                    <span className="text-primary font-medium">Processing from reservation</span>
+                  </div>
+                )}
+
+                {/* Step 1: Rider */}
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Step 1 — Identify Rider</Label>
                   <div className="flex gap-2">
                     <Input
-                      placeholder="Rider phone number (e.g. +250...)"
+                      placeholder="Rider phone number (e.g. +250…)"
                       value={riderPhone}
-                      onChange={(e) => { setRiderPhone(e.target.value); setRider(null); setRiderError('') }}
+                      onChange={(e) => {
+                        setRiderPhone(e.target.value)
+                        if (!activeReservationId) { setRider(null); setRiderError('') }
+                      }}
                       onKeyDown={(e) => e.key === 'Enter' && lookupRider()}
                       className="flex-1"
                     />
@@ -267,10 +405,29 @@ export function SwapProcess() {
                 {/* Step 2: Depleted battery */}
                 <div className="space-y-1.5">
                   <Label className="text-sm font-medium">Step 2 — Depleted Battery (Serial / ID)</Label>
+                  {depletedBatterySuggestion && (
+                    <div className="flex items-center gap-2 p-2.5 bg-warning/5 border border-warning/20 rounded-lg text-xs">
+                      <Battery className="w-3.5 h-3.5 text-warning shrink-0" />
+                      <span className="text-gray-600">
+                        Last battery issued:{' '}
+                        <span className="font-mono font-semibold text-gray-900">
+                          {depletedBatterySuggestion.serialNumber}
+                        </span>
+                        {' '}({depletedBatterySuggestion.chargeLevel}% when given) — auto-filled below
+                      </span>
+                    </div>
+                  )}
                   <Input
-                    placeholder="Enter serial number or scan QR"
+                    placeholder="Serial number auto-filled from last swap, or enter manually"
                     value={depletedBattery}
-                    onChange={(e) => setDepletedBattery(e.target.value)}
+                    onChange={(e) => {
+                      setDepletedBattery(e.target.value)
+                      // clear the resolved ID — it will be re-resolved via search on submit
+                      setDepletedBatteryResolvedId(null)
+                      if (depletedBatterySuggestion && e.target.value !== depletedBatterySuggestion.serialNumber) {
+                        setDepletedBatterySuggestion(null)
+                      }
+                    }}
                   />
                 </div>
 
@@ -319,63 +476,195 @@ export function SwapProcess() {
             </Card>
           )}
 
-          {/* Right: live queue */}
+          {/* ── Right: Reservations + Queue ── */}
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-3">
-              <CardTitle>Live Queue</CardTitle>
-              <div className="flex items-center gap-2">
-                {queue && (
-                  <span className="text-xs text-gray-500">
-                    {queue.length} waiting · ~{queue.estimatedWait} min
+            {/* Tab bar */}
+            <div className="flex border-b px-4 pt-4">
+              <button
+                onClick={() => setRightTab('reservations')}
+                className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
+                  rightTab === 'reservations'
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <Calendar className="w-3.5 h-3.5" />
+                Reservations
+                {reservationCount > 0 && (
+                  <span className={`ml-1 text-xs font-bold px-1.5 py-0.5 rounded-full ${
+                    rightTab === 'reservations' ? 'bg-primary/10 text-primary' : 'bg-gray-100 text-gray-600'
+                  }`}>
+                    {reservationCount}
                   </span>
                 )}
-                <button
-                  onClick={() => station && loadQueue(station._id)}
-                  className="p-1.5 rounded-lg text-gray-400 hover:text-primary hover:bg-primary/5 transition-colors"
-                  aria-label="Refresh queue"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {!queue || queue.length === 0 ? (
-                <div className="flex flex-col items-center gap-3 py-12 text-center">
-                  <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
-                    <Users className="w-6 h-6 text-gray-400" />
-                  </div>
-                  <p className="text-sm text-gray-600">No riders in queue</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {queue.queue.map((riderId, idx) => (
-                    <div
-                      key={riderId}
-                      className="p-3 border rounded-lg flex items-center justify-between hover:bg-gray-50 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-7 h-7 bg-primary/10 rounded-full flex items-center justify-center shrink-0">
-                          <span className="text-xs font-bold text-primary">{idx + 1}</span>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-700">Rider #{idx + 1}</p>
-                          <p className="text-xs text-gray-400 font-mono">...{riderId.slice(-8)}</p>
-                        </div>
+              </button>
+              <button
+                onClick={() => setRightTab('queue')}
+                className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
+                  rightTab === 'queue'
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <Users className="w-3.5 h-3.5" />
+                Live Queue
+                {queueCount > 0 && (
+                  <span className={`ml-1 text-xs font-bold px-1.5 py-0.5 rounded-full ${
+                    rightTab === 'queue' ? 'bg-primary/10 text-primary' : 'bg-gray-100 text-gray-600'
+                  }`}>
+                    {queueCount}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            <CardContent className="pt-4">
+
+              {/* ── Reservations tab ── */}
+              {rightTab === 'reservations' && (
+                <>
+                  {reservations.length === 0 ? (
+                    <div className="flex flex-col items-center gap-3 py-12 text-center">
+                      <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
+                        <Calendar className="w-6 h-6 text-gray-400" />
                       </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleProcessQueueRider(riderId)}
-                        className="text-xs"
-                      >
-                        Select
-                      </Button>
+                      <p className="text-sm text-gray-600">No upcoming reservations</p>
+                      <p className="text-xs text-gray-400">Riders who pre-booked a slot will appear here</p>
                     </div>
-                  ))}
-                </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {reservations.map((res) => {
+                        const riderObj = res.riderId as { _id: string; fullName: string; phone: string }
+                        const near = isNearNow(res.reservedTime)
+                        const isActive = activeReservationId === res._id
+                        return (
+                          <div
+                            key={res._id}
+                            className={`p-3 border rounded-xl transition-colors ${
+                              isActive
+                                ? 'border-primary bg-primary/5'
+                                : near
+                                ? 'border-warning/50 bg-warning/5'
+                                : 'border-gray-200 hover:border-gray-300'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex items-start gap-2.5 flex-1 min-w-0">
+                                <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center shrink-0 mt-0.5">
+                                  <User className="w-4 h-4 text-primary" />
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-sm font-semibold text-gray-900 truncate">
+                                    {riderObj?.fullName ?? 'Unknown Rider'}
+                                  </p>
+                                  {riderObj?.phone && (
+                                    <p className="text-xs text-gray-500">{riderObj.phone}</p>
+                                  )}
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <div className="flex items-center gap-1 text-xs text-gray-500">
+                                      <Clock className="w-3 h-3" />
+                                      {formatTime(res.reservedTime)}
+                                    </div>
+                                    <span className={`text-xs font-medium ${
+                                      new Date(res.reservedTime).getTime() < Date.now()
+                                        ? 'text-error'
+                                        : near
+                                        ? 'text-warning'
+                                        : 'text-gray-500'
+                                    }`}>
+                                      {timeUntil(res.reservedTime)}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-gray-400 font-mono mt-0.5">
+                                    Code: {res.cancellationCode}
+                                  </p>
+                                </div>
+                              </div>
+                              <Button
+                                size="sm"
+                                variant={isActive ? 'default' : 'outline'}
+                                onClick={() => handleProcessReservation(res)}
+                                className="shrink-0 text-xs"
+                              >
+                                {isActive ? (
+                                  'Selected'
+                                ) : (
+                                  <>Process <ChevronRight className="w-3 h-3 ml-0.5" /></>
+                                )}
+                              </Button>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </>
               )}
 
-              {/* Available batteries summary */}
+              {/* ── Queue tab ── */}
+              {rightTab === 'queue' && (
+                <>
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-xs text-gray-500">
+                      {queueCount} waiting · ~{queue?.estimatedWait ?? 0} min est.
+                    </p>
+                    <button
+                      onClick={() => station && loadQueue(station._id)}
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-primary hover:bg-primary/5 transition-colors"
+                      aria-label="Refresh queue"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  {!queue || queueCount === 0 ? (
+                    <div className="flex flex-col items-center gap-3 py-12 text-center">
+                      <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
+                        <Users className="w-6 h-6 text-gray-400" />
+                      </div>
+                      <p className="text-sm text-gray-600">No riders in queue</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {queue.queue.map((riderId, idx) => (
+                        <div
+                          key={riderId}
+                          className="p-3 border rounded-lg flex items-center justify-between hover:bg-gray-50 transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-7 h-7 bg-primary/10 rounded-full flex items-center justify-center shrink-0">
+                              <span className="text-xs font-bold text-primary">{idx + 1}</span>
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-gray-700">Rider #{idx + 1}</p>
+                              <p className="text-xs text-gray-400 font-mono">…{riderId.slice(-8)}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleProcessQueueRider(riderId)}
+                              className="text-xs"
+                            >
+                              Select
+                            </Button>
+                            <button
+                              onClick={() => handleRemoveFromQueue(riderId)}
+                              className="p-1.5 rounded-lg text-gray-400 hover:text-error hover:bg-error/5 transition-colors"
+                              title="Remove from queue"
+                            >
+                              <UserX className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Battery stock summary — always visible */}
               {station && (
                 <div className="mt-4 pt-4 border-t flex items-center justify-between text-sm">
                   <div className="flex items-center gap-1.5 text-gray-600">
@@ -387,10 +676,11 @@ export function SwapProcess() {
                   </Badge>
                 </div>
               )}
+
             </CardContent>
           </Card>
-        </div>
 
+        </div>
       </div>
     </DashboardLayout>
   )
