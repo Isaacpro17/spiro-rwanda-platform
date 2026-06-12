@@ -181,9 +181,10 @@ export function SwapRequest() {
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null)
 
   // ── Date/time helpers ──
-  const now = new Date()
-  const minDateTime = toInputValue(now)
-  const maxDateTime = toInputValue(new Date(now.getTime() + 2 * 60 * 60 * 1000))
+  // Allow picking times from 5 minutes ago so "now" is always selectable,
+  // even if the user spends a few seconds reading the form before submitting.
+  const minDateTime = toInputValue(new Date(Date.now() - 5 * 60 * 1000))
+  const maxDateTime = toInputValue(new Date(Date.now() + 2 * 60 * 60 * 1000))
 
   // ── Load stations and guidance ──
   const loadStations = useCallback(async () => {
@@ -227,7 +228,11 @@ export function SwapRequest() {
     if (!form.reservedTime) { setSubmitError('Please select a time'); return }
 
     const selectedTime = new Date(form.reservedTime)
-    if (selectedTime < new Date()) { setSubmitError('Please select a future time'); return }
+    // Allow up to 5 minutes in the past to account for form fill time
+    if (selectedTime < new Date(Date.now() - 5 * 60 * 1000)) {
+      setSubmitError('Please select a time no more than 5 minutes in the past')
+      return
+    }
 
     setIsSubmitting(true)
     try {

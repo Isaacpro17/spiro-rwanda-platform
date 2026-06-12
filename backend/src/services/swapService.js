@@ -23,10 +23,16 @@ const AUTO_CANCEL_MINUTES = 15;
  * @param {Date} requestedTime
  * @returns {Promise<SlotReservation>}
  */
+const GRACE_MINUTES = 5; // allow times up to 5 min in the past (form-fill latency)
+
 export async function createReservation(riderId, stationId, requestedTime) {
   const now = new Date();
+  const minTime = new Date(now.getTime() - GRACE_MINUTES * 60 * 1000);
   const maxTime = new Date(now.getTime() + MAX_RESERVATION_HOURS * 60 * 60 * 1000);
 
+  if (requestedTime < minTime) {
+    throw new ValidationError('Reservation time cannot be more than 5 minutes in the past');
+  }
   if (requestedTime > maxTime) {
     throw new ValidationError(`Reservations can only be made up to ${MAX_RESERVATION_HOURS} hours in advance`);
   }

@@ -127,11 +127,13 @@ export async function getSwapStats(req, res, next) {
 export async function getMyReservations(req, res, next) {
   try {
     const { SlotReservation } = await import('../models/SlotReservation.js');
-    const now = new Date();
+    // Include reservations from up to 30 min ago so a rider at the station
+    // still sees their active slot during the 15-minute auto-cancel grace window.
+    const windowStart = new Date(Date.now() - 30 * 60 * 1000);
     const data = await SlotReservation.find({
       riderId:      req.user.userId,
       status:       'confirmed',
-      reservedTime: { $gte: now },
+      reservedTime: { $gte: windowStart },
     })
       .populate('stationId', 'name address')
       .sort({ reservedTime: 1 });
