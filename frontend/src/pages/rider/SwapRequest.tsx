@@ -184,7 +184,7 @@ export function SwapRequest() {
   // Allow picking times from 5 minutes ago so "now" is always selectable,
   // even if the user spends a few seconds reading the form before submitting.
   const minDateTime = toInputValue(new Date(Date.now() - 5 * 60 * 1000))
-  const maxDateTime = toInputValue(new Date(Date.now() + 2 * 60 * 60 * 1000))
+  const maxDateTime = toInputValue(new Date(Date.now() + 24 * 60 * 60 * 1000))
 
   // ── Load stations and guidance ──
   const loadStations = useCallback(async () => {
@@ -231,6 +231,11 @@ export function SwapRequest() {
     // Allow up to 5 minutes in the past to account for form fill time
     if (selectedTime < new Date(Date.now() - 5 * 60 * 1000)) {
       setSubmitError('Please select a time no more than 5 minutes in the past')
+      return
+    }
+    // Must be within the 24-hour advance window
+    if (selectedTime > new Date(Date.now() + 24 * 60 * 60 * 1000)) {
+      setSubmitError('Reservations can only be made up to 24 hours in advance')
       return
     }
 
@@ -367,7 +372,7 @@ export function SwapRequest() {
                       />
                       <p className="text-xs text-gray-500 flex items-center gap-1">
                         <Clock className="w-3.5 h-3.5" />
-                        Slots can be reserved up to 2 hours in advance
+                        Slots can be reserved up to 24 hours in advance
                       </p>
                     </div>
 

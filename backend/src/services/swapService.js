@@ -13,7 +13,7 @@ import { ValidationError, NotFoundError } from '../middleware/errorHandler.js';
 import { broadcastQueueUpdate } from './queueService.js';
 import logger from '../utils/logger.js';
 
-const MAX_RESERVATION_HOURS = 2;
+const MAX_RESERVATION_HOURS = 24;
 const AUTO_CANCEL_MINUTES = 15;
 
 /**
