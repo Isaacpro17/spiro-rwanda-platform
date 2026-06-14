@@ -19,10 +19,12 @@ import {
 import { useStations } from '../../hooks/useStations'
 import type { StationCardData } from '../../types'
 import type { RiderLocation } from '../../services/stationService'
+import { useLanguage } from '../../contexts/LanguageContext'
 
 // ── Station Card ─────────────────────────────────────────────────────────────
 
 function StationCard({ station, index }: { station: StationCardData; index: number }) {
+  const { t } = useLanguage()
   const handleGetDirections = () => {
     if (station.mapsUrl) window.open(station.mapsUrl, '_blank', 'noopener,noreferrer')
   }
@@ -58,7 +60,7 @@ function StationCard({ station, index }: { station: StationCardData; index: numb
 
         <div className={`flex items-center gap-1 ${station.available > 0 ? 'text-success' : 'text-error'}`}>
           <Battery className="w-3.5 h-3.5" />
-          <span>{station.available} available</span>
+          <span>{station.available} {t.rider.stations.available}</span>
         </div>
 
         {station.etaMin !== null ? (
@@ -82,7 +84,7 @@ function StationCard({ station, index }: { station: StationCardData; index: numb
         disabled={!station.mapsUrl}
         aria-label={`Get directions to ${station.name}`}
       >
-        Get Directions
+        {t.rider.stations.getDirections}
       </Button>
     </div>
   )
@@ -215,6 +217,9 @@ function useLeafletMap(
 // ── Page Component ───────────────────────────────────────────────────────────
 
 export function FindStations() {
+  const { t } = useLanguage()
+  const st = t.rider.stations
+
   const {
     stations,
     allStations,
@@ -239,8 +244,8 @@ export function FindStations() {
 
         {/* Page header — consistent with other pages */}
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Find Stations</h1>
-          <p className="text-gray-600 mt-1">Locate nearby battery swap stations</p>
+          <h1 className="text-3xl font-bold text-gray-900">{st.title}</h1>
+          <p className="text-gray-600 mt-1">{st.subtitle}</p>
         </div>
 
         {/*
@@ -258,7 +263,7 @@ export function FindStations() {
             <Card>
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-base">Search Stations</CardTitle>
+                  <CardTitle className="text-base">{st.searchTitle}</CardTitle>
                   {!isLoading && (
                     <button
                       onClick={refresh}
@@ -276,7 +281,7 @@ export function FindStations() {
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                   <Input
                     id="station-search"
-                    placeholder="Search by name or location..."
+                    placeholder={st.searchPlaceholder}
                     className="pl-9 h-9 text-sm"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -291,11 +296,11 @@ export function FindStations() {
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />
                       <span className="relative inline-flex rounded-full h-2 w-2 bg-success" />
                     </span>
-                    Showing stations nearest to you
+                    {st.nearestToYou}
                   </div>
                 )}
                 {!isLoading && !riderLocation && (
-                  <p className="text-xs text-gray-400 mb-3">Enable location to see distances</p>
+                  <p className="text-xs text-gray-400 mb-3">{st.enableLocation}</p>
                 )}
 
                 {/* Scrollable station list — max height matches the map panel */}
@@ -310,7 +315,7 @@ export function FindStations() {
                     <>
                       <div className="flex items-center justify-center gap-2 py-4 text-sm text-gray-500">
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Locating stations…</span>
+                        <span>{st.locating}</span>
                       </div>
                       {[1, 2, 3].map((i) => <StationCardSkeleton key={i} />)}
                     </>
@@ -321,10 +326,10 @@ export function FindStations() {
                     <div className="flex flex-col items-center gap-3 py-8 text-center">
                       <AlertCircle className="w-9 h-9 text-error/60" />
                       <div>
-                        <p className="text-sm font-medium text-gray-900">Unable to load stations</p>
+                        <p className="text-sm font-medium text-gray-900">{st.unableToLoad}</p>
                         <p className="text-xs text-gray-500 mt-1">{error}</p>
                       </div>
-                      <Button variant="outline" size="sm" onClick={refresh}>Try Again</Button>
+                      <Button variant="outline" size="sm" onClick={refresh}>{st.tryAgain}</Button>
                     </div>
                   )}
 
@@ -334,13 +339,13 @@ export function FindStations() {
                       <MapPin className="w-9 h-9 text-gray-300" />
                       {searchQuery ? (
                         <>
-                          <p className="text-sm font-medium text-gray-700">No stations match "{searchQuery}"</p>
-                          <p className="text-xs text-gray-500">Try a different search term</p>
+                          <p className="text-sm font-medium text-gray-700">{st.noMatchQuery.replace('{query}', searchQuery)}</p>
+                          <p className="text-xs text-gray-500">{st.tryDifferent}</p>
                         </>
                       ) : (
                         <>
-                          <p className="text-sm font-medium text-gray-700">No stations found</p>
-                          <p className="text-xs text-gray-500">Check back later</p>
+                          <p className="text-sm font-medium text-gray-700">{st.noStations}</p>
+                          <p className="text-xs text-gray-500">{st.checkBack}</p>
                         </>
                       )}
                     </div>
@@ -354,7 +359,9 @@ export function FindStations() {
                   {/* Filter count */}
                   {!isLoading && !error && stations.length > 0 && searchQuery && (
                     <p className="text-xs text-gray-400 text-center pt-1">
-                      {stations.length} of {allStations.length} station{allStations.length !== 1 ? 's' : ''}
+                      {st.ofTotal
+                        .replace('{shown}', String(stations.length))
+                        .replace('{total}', String(allStations.length))}
                     </p>
                   )}
                 </div>
@@ -390,7 +397,7 @@ export function FindStations() {
                 <div className="absolute inset-0 flex items-center justify-center bg-gray-50/80 z-[1000]">
                   <div className="flex flex-col items-center gap-3">
                     <Loader2 className="w-7 h-7 animate-spin text-primary" />
-                    <p className="text-sm text-gray-600">Loading map…</p>
+                    <p className="text-sm text-gray-600">{st.loadingMap}</p>
                   </div>
                 </div>
               )}
@@ -399,7 +406,7 @@ export function FindStations() {
               {!isLoading && !error && (
                 <div className="absolute top-3 left-3 z-[400] bg-white/90 backdrop-blur-sm rounded-lg px-2.5 py-1.5 shadow-md border border-gray-100">
                   <p className="text-xs font-medium text-gray-700">
-                    {stations.length} station{stations.length !== 1 ? 's' : ''} shown
+                    {(stations.length !== 1 ? st.stationCountPlural : st.stationCount).replace('{n}', String(stations.length))}
                   </p>
                 </div>
               )}
@@ -407,18 +414,18 @@ export function FindStations() {
               {/* Legend — bottom right */}
               {!isLoading && (
                 <div className="absolute bottom-6 right-3 z-[400] bg-white/90 backdrop-blur-sm rounded-xl px-3 py-2 shadow-lg border border-gray-100 text-xs flex flex-col gap-1.5">
-                  <p className="font-semibold text-gray-700 mb-0.5 text-[11px] uppercase tracking-wide">Legend</p>
+                  <p className="font-semibold text-gray-700 mb-0.5 text-[11px] uppercase tracking-wide">{st.legend}</p>
                   <div className="flex items-center gap-2">
                     <span className="inline-block w-2.5 h-2.5 rounded-full bg-[#1D9E75] border-2 border-white shadow-sm shrink-0" />
-                    <span className="text-gray-600">Open station</span>
+                    <span className="text-gray-600">{st.legendOpen}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="inline-block w-2.5 h-2.5 rounded-full bg-gray-400 border-2 border-white shadow-sm shrink-0" />
-                    <span className="text-gray-600">Closed station</span>
+                    <span className="text-gray-600">{st.legendClosed}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="inline-block w-3 h-3 rounded-full bg-[#3B3BA6] border-2 border-white shadow-sm shrink-0" />
-                    <span className="text-gray-600">Your location</span>
+                    <span className="text-gray-600">{st.legendYou}</span>
                   </div>
                 </div>
               )}

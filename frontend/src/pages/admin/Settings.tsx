@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../contexts/AuthContext'
+import { useLanguage } from '../../contexts/LanguageContext'
 import type { User as UserType, SubscriptionPlanData } from '../../types'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -50,6 +51,8 @@ interface PlanModalProps {
 }
 
 function PlanModal({ plan, onClose, onSave }: PlanModalProps) {
+  const { t } = useLanguage()
+  const pm = t.admin.settings.planModal
   const isEdit = !!plan
   const [name, setName] = useState(plan?.name ?? '')
   const [priceRwf, setPriceRwf] = useState(String(plan?.priceRwf ?? ''))
@@ -59,7 +62,7 @@ function PlanModal({ plan, onClose, onSave }: PlanModalProps) {
   const [error, setError] = useState('')
 
   const handleSave = async () => {
-    if (!name.trim() || !priceRwf) { setError('Name and price are required'); return }
+    if (!name.trim() || !priceRwf) { setError(pm.errRequired); return }
     setSaving(true)
     setError('')
     try {
@@ -87,22 +90,22 @@ function PlanModal({ plan, onClose, onSave }: PlanModalProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-semibold">{isEdit ? 'Edit Plan' : 'New Plan'}</h2>
+          <h2 className="text-lg font-semibold">{isEdit ? pm.titleEdit : pm.titleCreate}</h2>
           <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100">
             <X className="w-4 h-4" />
           </button>
         </div>
         <div className="space-y-3">
           <div className="space-y-1">
-            <Label className="text-xs">Plan Name *</Label>
+            <Label className="text-xs">{pm.planName}</Label>
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Basic / Standard / Premium" />
           </div>
           <div className="space-y-1">
-            <Label className="text-xs">Price (RWF) *</Label>
+            <Label className="text-xs">{pm.price}</Label>
             <Input type="number" min="0" value={priceRwf} onChange={(e) => setPriceRwf(e.target.value)} placeholder="5000" />
           </div>
           <div className="space-y-1">
-            <Label className="text-xs">Swaps per Month</Label>
+            <Label className="text-xs">{pm.swapsPerMonth}</Label>
             <Input type="number" min="0" value={swapsPerMonth} onChange={(e) => setSwapsPerMonth(e.target.value)} placeholder="30" />
           </div>
           <div className="flex items-center gap-2 pt-1">
@@ -113,14 +116,14 @@ function PlanModal({ plan, onClose, onSave }: PlanModalProps) {
               onChange={(e) => setIsActive(e.target.checked)}
               className="rounded"
             />
-            <Label htmlFor="plan-active" className="text-xs cursor-pointer">Plan is active (visible to riders)</Label>
+            <Label htmlFor="plan-active" className="text-xs cursor-pointer">{pm.activeLabel}</Label>
           </div>
           {error && <p className="text-xs text-error flex items-center gap-1"><AlertCircle className="w-3.5 h-3.5" />{error}</p>}
           <div className="flex gap-2 pt-2">
-            <Button variant="outline" size="sm" onClick={onClose} className="flex-1">Cancel</Button>
+            <Button variant="outline" size="sm" onClick={onClose} className="flex-1">{pm.cancel}</Button>
             <Button size="sm" onClick={handleSave} disabled={saving} className="flex-1">
               {saving && <Loader2 className="w-4 h-4 animate-spin mr-1" />}
-              {isEdit ? 'Save Changes' : 'Create Plan'}
+              {isEdit ? pm.saveChanges : pm.createPlan}
             </Button>
           </div>
         </div>
@@ -135,6 +138,8 @@ const LOG_PAGE_SIZE = 50
 
 export function Settings() {
   const { user, updateUser } = useAuth()
+  const { t, lang, toggle } = useLanguage()
+  const s = t.admin.settings
 
   // Profile form
   const [fullName, setFullName] = useState('')
@@ -225,6 +230,7 @@ export function Settings() {
       const result = await api.put<{ user: UserType }>('/auth/me', { fullName, phone, email, language })
       const updated = (result as any)?.user ?? result
       updateUser(updated as UserType)
+      if (language !== lang) toggle()
       setProfileSuccess('Profile updated.')
       setTimeout(() => setProfileSuccess(''), 3000)
     } catch (err: any) {
@@ -235,8 +241,8 @@ export function Settings() {
   }
 
   const handlePasswordChange = async () => {
-    if (newPassword !== confirmPassword) { setPasswordError('Passwords do not match'); return }
-    if (newPassword.length < 8) { setPasswordError('New password must be at least 8 characters'); return }
+    if (newPassword !== confirmPassword) { setPasswordError(s.errPasswordMatch); return }
+    if (newPassword.length < 8) { setPasswordError(s.errPasswordLength); return }
     setPasswordSaving(true)
     setPasswordSuccess('')
     setPasswordError('')
@@ -263,8 +269,8 @@ export function Settings() {
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
-            <p className="text-gray-600 mt-1">Admin profile, subscription plans, and audit logs</p>
+            <h1 className="text-3xl font-bold text-gray-900">{s.title}</h1>
+            <p className="text-gray-600 mt-1">{s.subtitle}</p>
           </div>
         </div>
 
@@ -274,7 +280,7 @@ export function Settings() {
           {/* Profile */}
           <Card>
             <CardHeader>
-              <CardTitle>Admin Profile</CardTitle>
+              <CardTitle>{s.adminProfile}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {profileSuccess && (
@@ -289,9 +295,9 @@ export function Settings() {
               )}
 
               {[
-                { id: 'fn', label: 'Full Name', icon: <User className="w-3.5 h-3.5" />, value: fullName, setter: setFullName, type: 'text', placeholder: 'Jean Bosco' },
-                { id: 'ph', label: 'Phone', icon: null, value: phone, setter: setPhone, type: 'tel', placeholder: '+250 7XX XXX XXX' },
-                { id: 'em', label: 'Email', icon: null, value: email, setter: setEmail, type: 'email', placeholder: 'admin@spiro.com' },
+                { id: 'fn', label: s.fullName, icon: <User className="w-3.5 h-3.5" />, value: fullName, setter: setFullName, type: 'text', placeholder: 'Jean Bosco' },
+                { id: 'ph', label: s.phone, icon: null as React.ReactNode, value: phone, setter: setPhone, type: 'tel', placeholder: '+250 7XX XXX XXX' },
+                { id: 'em', label: s.email, icon: null as React.ReactNode, value: email, setter: setEmail, type: 'email', placeholder: 'admin@spiro.com' },
               ].map(({ id, label, icon, value, setter, type, placeholder }) => (
                 <div key={id} className="space-y-1.5">
                   <Label htmlFor={id} className="text-xs flex items-center gap-1">
@@ -302,24 +308,24 @@ export function Settings() {
               ))}
 
               <div className="space-y-1.5">
-                <Label className="text-xs flex items-center gap-1"><Globe className="w-3.5 h-3.5" />Language</Label>
+                <Label className="text-xs flex items-center gap-1"><Globe className="w-3.5 h-3.5" />{s.language}</Label>
                 <div className="flex gap-2">
-                  {(['en', 'rw'] as const).map((lang) => (
+                  {(['en', 'rw'] as const).map((lg) => (
                     <button
-                      key={lang}
-                      onClick={() => setLanguage(lang)}
+                      key={lg}
+                      onClick={() => setLanguage(lg)}
                       className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                        language === lang ? 'border-primary bg-primary/5 text-primary' : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                        language === lg ? 'border-primary bg-primary/5 text-primary' : 'border-gray-200 text-gray-600 hover:border-gray-300'
                       }`}
                     >
-                      {lang === 'en' ? 'English' : 'Kinyarwanda'}
+                      {lg === 'en' ? s.langEn : s.langRw}
                     </button>
                   ))}
                 </div>
               </div>
 
               <Button onClick={handleProfileSave} disabled={profileSaving} className="w-full">
-                {profileSaving ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Saving…</> : 'Save Profile'}
+                {profileSaving ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />{s.saving}</> : s.saveProfile}
               </Button>
 
               {/* Account meta */}
@@ -339,7 +345,7 @@ export function Settings() {
           {/* Password */}
           <Card>
             <CardHeader>
-              <CardTitle>Change Password</CardTitle>
+              <CardTitle>{s.changePassword}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {passwordSuccess && (
@@ -354,10 +360,10 @@ export function Settings() {
               )}
 
               {[
-                { id: 'cp', label: 'Current Password', value: currentPassword, setter: setCurrentPassword, show: showCur, toggle: setShowCur },
-                { id: 'np', label: 'New Password', value: newPassword, setter: setNewPassword, show: showNew, toggle: setShowNew },
-                { id: 'conf', label: 'Confirm New Password', value: confirmPassword, setter: setConfirmPassword, show: showConf, toggle: setShowConf },
-              ].map(({ id, label, value, setter, show, toggle }) => (
+                { id: 'cp', label: s.currentPassword, value: currentPassword, setter: setCurrentPassword, show: showCur, toggle: setShowCur },
+                { id: 'np', label: s.newPassword, value: newPassword, setter: setNewPassword, show: showNew, toggle: setShowNew },
+                { id: 'conf', label: s.confirmPassword, value: confirmPassword, setter: setConfirmPassword, show: showConf, toggle: setShowConf },
+              ].map(({ id, label, value, setter, show, toggle: toggleVis }) => (
                 <div key={id} className="space-y-1.5">
                   <Label htmlFor={id} className="text-xs">{label}</Label>
                   <div className="relative">
@@ -371,7 +377,7 @@ export function Settings() {
                     />
                     <button
                       type="button"
-                      onClick={() => toggle(!show)}
+                      onClick={() => toggleVis(!show)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                     >
                       {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -385,7 +391,7 @@ export function Settings() {
                 disabled={passwordSaving || !currentPassword || !newPassword || !confirmPassword}
                 className="w-full"
               >
-                {passwordSaving ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Changing…</> : 'Change Password'}
+                {passwordSaving ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />{s.changing}</> : s.changePasswordBtn}
               </Button>
             </CardContent>
           </Card>
@@ -395,9 +401,9 @@ export function Settings() {
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle>Subscription Plans</CardTitle>
+              <CardTitle>{s.plansTitle}</CardTitle>
               <Button size="sm" onClick={() => setPlanModal('new')}>
-                <Plus className="w-4 h-4 mr-1" />New Plan
+                <Plus className="w-4 h-4 mr-1" />{s.newPlan}
               </Button>
             </div>
           </CardHeader>
@@ -407,7 +413,7 @@ export function Settings() {
                 <Loader2 className="w-5 h-5 text-primary animate-spin" />
               </div>
             ) : plans.length === 0 ? (
-              <p className="text-sm text-gray-500 text-center py-6">No plans yet. Create one to get started.</p>
+              <p className="text-sm text-gray-500 text-center py-6">{s.noPlans}</p>
             ) : (
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {plans.map((plan) => (
@@ -421,7 +427,7 @@ export function Settings() {
                       </div>
                       <div className="flex items-center gap-1">
                         <Badge variant={plan.isActive ? 'success' : 'secondary'} className="text-xs">
-                          {plan.isActive ? 'Active' : 'Inactive'}
+                          {plan.isActive ? s.planActive : s.planInactive}
                         </Badge>
                         <button
                           onClick={() => setPlanModal(plan)}
@@ -432,7 +438,7 @@ export function Settings() {
                       </div>
                     </div>
                     {plan.swapsPerMonth && (
-                      <p className="text-xs text-gray-500">{plan.swapsPerMonth} swaps / month</p>
+                      <p className="text-xs text-gray-500">{plan.swapsPerMonth} {s.swapsPerMonth}</p>
                     )}
                   </div>
                 ))}
@@ -445,7 +451,7 @@ export function Settings() {
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle>Audit Log</CardTitle>
+              <CardTitle>{s.auditTitle}</CardTitle>
               <button onClick={() => loadLogs(logPage)} className="p-1.5 rounded-lg text-gray-400 hover:text-primary hover:bg-primary/5 transition-colors">
                 <RefreshCw className="w-4 h-4" />
               </button>
@@ -459,10 +465,10 @@ export function Settings() {
             ) : logsError ? (
               <div className="flex items-center gap-3 p-4 text-sm text-error">
                 <AlertCircle className="w-4 h-4" />{logsError}
-                <Button variant="ghost" size="sm" onClick={() => loadLogs(logPage)} className="ml-auto text-error">Retry</Button>
+                <Button variant="ghost" size="sm" onClick={() => loadLogs(logPage)} className="ml-auto text-error">{s.auditRetry}</Button>
               </div>
             ) : logs.length === 0 ? (
-              <p className="text-sm text-gray-500 text-center py-8">No audit entries found.</p>
+              <p className="text-sm text-gray-500 text-center py-8">{s.noAudit}</p>
             ) : (
               <>
                 <div className="divide-y">
@@ -492,7 +498,7 @@ export function Settings() {
 
                 {logTotalPages > 1 && (
                   <div className="flex items-center justify-between px-6 py-4 border-t">
-                    <span className="text-xs text-gray-500">Page {logPage} of {logTotalPages} · {logTotal} entries</span>
+                    <span className="text-xs text-gray-500">{s.page} {logPage} {s.of} {logTotalPages} · {logTotal} {s.entries}</span>
                     <div className="flex gap-2">
                       <Button variant="outline" size="sm" onClick={() => setLogPage((p) => Math.max(1, p - 1))} disabled={logPage === 1 || logsLoading}>
                         <ChevronLeft className="w-4 h-4" />

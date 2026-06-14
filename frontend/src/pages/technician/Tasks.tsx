@@ -8,16 +8,17 @@ import {
   Loader2, RefreshCw, ChevronLeft, ChevronRight, X, User,
 } from 'lucide-react'
 import { api } from '../../lib/api'
+import { useLanguage } from '../../contexts/LanguageContext'
 import type { StationMaintenanceRequest } from '../../types'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type TabKey = 'pending' | 'in_progress' | 'resolved'
 
-const TAB_CONFIG: Record<TabKey, { label: string; statuses: string[] }> = {
-  pending: { label: 'Open / Assigned', statuses: ['open', 'assigned'] },
-  in_progress: { label: 'In Progress', statuses: ['in_progress'] },
-  resolved: { label: 'Resolved', statuses: ['resolved'] },
+const TAB_STATUSES: Record<TabKey, string[]> = {
+  pending: ['open', 'assigned'],
+  in_progress: ['in_progress'],
+  resolved: ['resolved'],
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -33,11 +34,6 @@ function statusVariant(s: string) {
   if (s === 'in_progress') return 'warning' as const
   if (s === 'assigned') return 'default' as const
   return 'destructive' as const
-}
-
-function statusLabel(s: string) {
-  if (s === 'in_progress') return 'In Progress'
-  return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
 function fmtDate(iso: string) {
@@ -61,6 +57,8 @@ interface ResolveModalProps {
 }
 
 function ResolveModal({ task, onClose, onResolve }: ResolveModalProps) {
+  const { t } = useLanguage()
+  const rm = t.technician.tasks.resolveModal
   const [notes, setNotes] = useState(task.notes ?? '')
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
@@ -82,7 +80,7 @@ function ResolveModal({ task, onClose, onResolve }: ResolveModalProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-semibold">Mark as Resolved</h2>
+          <h2 className="text-lg font-semibold">{rm.title}</h2>
           <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100">
             <X className="w-4 h-4" />
           </button>
@@ -96,13 +94,13 @@ function ResolveModal({ task, onClose, onResolve }: ResolveModalProps) {
         <div className="space-y-3">
           <div>
             <label className="text-xs font-medium text-gray-700 block mb-1.5">
-              Resolution Notes (optional)
+              {rm.notesLabel}
             </label>
             <textarea
               rows={4}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Describe what was done to resolve this issue…"
+              placeholder={rm.placeholder}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
             />
           </div>
@@ -114,10 +112,10 @@ function ResolveModal({ task, onClose, onResolve }: ResolveModalProps) {
           )}
 
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={onClose} className="flex-1">Cancel</Button>
+            <Button variant="outline" size="sm" onClick={onClose} className="flex-1">{rm.cancel}</Button>
             <Button size="sm" onClick={handleSubmit} disabled={saving} className="flex-1">
               {saving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <CheckCircle2 className="w-4 h-4 mr-1" />}
-              Mark Resolved
+              {rm.markResolved}
             </Button>
           </div>
         </div>
@@ -135,9 +133,19 @@ interface TaskCardProps {
 }
 
 function TaskCard({ task, onStart, onResolve }: TaskCardProps) {
+  const { t } = useLanguage()
+  const tk = t.technician.tasks
   const stationName = typeof task.stationId === 'object' ? task.stationId.name : '—'
   const isOpen = task.status === 'open' || task.status === 'assigned'
   const isInProgress = task.status === 'in_progress'
+
+  const getStatusLabel = (s: string) => {
+    if (s === 'open') return tk.statusOpen
+    if (s === 'assigned') return tk.statusAssigned
+    if (s === 'in_progress') return tk.statusInProgress
+    if (s === 'resolved') return tk.statusResolved
+    return s
+  }
 
   return (
     <div className={`p-4 border rounded-xl transition-colors ${
@@ -154,7 +162,7 @@ function TaskCard({ task, onStart, onResolve }: TaskCardProps) {
               {task.urgency}
             </Badge>
             <Badge variant={statusVariant(task.status)} className="text-xs">
-              {statusLabel(task.status)}
+              {getStatusLabel(task.status)}
             </Badge>
           </div>
 
@@ -170,20 +178,20 @@ function TaskCard({ task, onStart, onResolve }: TaskCardProps) {
             </span>
             {task.createdByOperator && (
               <span className="flex items-center gap-1">
-                <User className="w-3.5 h-3.5" />Reported by {task.createdByOperator.fullName}
+                <User className="w-3.5 h-3.5" />{tk.reportedBy} {task.createdByOperator.fullName}
               </span>
             )}
           </div>
 
           {task.notes && (
             <div className="mt-2 text-xs text-gray-600 bg-white border rounded-lg px-3 py-2">
-              <span className="font-medium">Notes:</span> {task.notes}
+              <span className="font-medium">{tk.notes}:</span> {task.notes}
             </div>
           )}
 
           {task.resolvedAt && (
             <p className="mt-2 text-xs text-success flex items-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5" />Resolved {fmtDate(task.resolvedAt)}
+              <CheckCircle2 className="w-3.5 h-3.5" />{tk.resolvedOn} {fmtDate(task.resolvedAt)}
             </p>
           )}
         </div>
@@ -192,13 +200,13 @@ function TaskCard({ task, onStart, onResolve }: TaskCardProps) {
         <div className="flex flex-col gap-2 shrink-0">
           {isOpen && (
             <Button size="sm" variant="outline" onClick={() => onStart(task._id)}>
-              Start Work
+              {tk.startWork}
             </Button>
           )}
           {isInProgress && (
             <Button size="sm" onClick={() => onResolve(task)}>
               <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
-              Resolve
+              {tk.resolve}
             </Button>
           )}
         </div>
@@ -212,6 +220,8 @@ function TaskCard({ task, onStart, onResolve }: TaskCardProps) {
 const PAGE_SIZE = 15
 
 export function Tasks() {
+  const { t } = useLanguage()
+  const tk = t.technician.tasks
   const [tab, setTab] = useState<TabKey>('pending')
   const [tasks, setTasks] = useState<StationMaintenanceRequest[]>([])
   const [total, setTotal] = useState(0)
@@ -220,11 +230,23 @@ export function Tasks() {
   const [error, setError] = useState<string | null>(null)
   const [resolveTarget, setResolveTarget] = useState<StationMaintenanceRequest | null>(null)
 
+  const tabLabels: Record<TabKey, string> = {
+    pending: tk.tabPending,
+    in_progress: tk.tabInProgress,
+    resolved: tk.tabResolved,
+  }
+
+  const emptyMessages: Record<TabKey, string> = {
+    pending: tk.emptyPending,
+    in_progress: tk.emptyInProgress,
+    resolved: tk.emptyResolved,
+  }
+
   const loadTasks = useCallback(async (currentTab: TabKey, p: number) => {
     setIsLoading(true)
     setError(null)
     try {
-      const statuses = TAB_CONFIG[currentTab].statuses.join(',')
+      const statuses = TAB_STATUSES[currentTab].join(',')
       const params = new URLSearchParams({
         status: statuses,
         page: String(p),
@@ -254,8 +276,7 @@ export function Tasks() {
   const handleStart = async (taskId: string) => {
     try {
       const updated = await api.put<StationMaintenanceRequest>(`/technicians/tasks/${taskId}`, { status: 'in_progress' })
-      setTasks((prev) => prev.map((t) => t._id === taskId ? (updated ?? t) : t))
-      // Move to in_progress tab
+      setTasks((prev) => prev.map((task) => task._id === taskId ? (updated ?? task) : task))
       setTab('in_progress')
       setPage(1)
     } catch (e: any) {
@@ -268,7 +289,7 @@ export function Tasks() {
       status: 'resolved',
       notes,
     })
-    setTasks((prev) => prev.filter((t) => t._id !== taskId))
+    setTasks((prev) => prev.filter((task) => task._id !== taskId))
     setTotal((prev) => Math.max(0, prev - 1))
     if (updated) {
       setTab('resolved')
@@ -285,8 +306,8 @@ export function Tasks() {
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Maintenance Tasks</h1>
-            <p className="text-gray-600 mt-1">Your assigned tasks and open requests at your stations</p>
+            <h1 className="text-3xl font-bold text-gray-900">{tk.title}</h1>
+            <p className="text-gray-600 mt-1">{tk.subtitle}</p>
           </div>
           <button
             onClick={() => loadTasks(tab, page)}
@@ -301,24 +322,24 @@ export function Tasks() {
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{error}</span>
             <Button variant="ghost" size="sm" onClick={() => loadTasks(tab, page)} className="ml-auto text-error">
-              Retry
+              {tk.retry}
             </Button>
           </div>
         )}
 
         {/* Tabs */}
         <div className="flex gap-1 border-b">
-          {(Object.keys(TAB_CONFIG) as TabKey[]).map((t) => (
+          {(Object.keys(TAB_STATUSES) as TabKey[]).map((tabKey) => (
             <button
-              key={t}
-              onClick={() => setTab(t)}
+              key={tabKey}
+              onClick={() => setTab(tabKey)}
               className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-                tab === t
+                tab === tabKey
                   ? 'border-primary text-primary'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}
             >
-              {TAB_CONFIG[t].label}
+              {tabLabels[tabKey]}
             </button>
           ))}
         </div>
@@ -327,7 +348,7 @@ export function Tasks() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle>
-              {TAB_CONFIG[tab].label}
+              {tabLabels[tab]}
               {!isLoading && (
                 <span className="ml-2 text-sm font-normal text-gray-400">({total})</span>
               )}
@@ -343,12 +364,8 @@ export function Tasks() {
                 <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center">
                   <Wrench className="w-7 h-7 text-gray-400" />
                 </div>
-                <p className="text-sm font-medium text-gray-700">No tasks found</p>
-                <p className="text-xs text-gray-500">
-                  {tab === 'pending' ? 'No open tasks at your assigned stations' :
-                   tab === 'in_progress' ? 'No tasks currently in progress' :
-                   'No resolved tasks yet'}
-                </p>
+                <p className="text-sm font-medium text-gray-700">{tk.emptyTitle}</p>
+                <p className="text-xs text-gray-500">{emptyMessages[tab]}</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -365,7 +382,9 @@ export function Tasks() {
 
             {totalPages > 1 && (
               <div className="flex items-center justify-between mt-4 pt-4 border-t">
-                <span className="text-xs text-gray-500">Page {page} of {totalPages} · {total} total</span>
+                <span className="text-xs text-gray-500">
+                  {tk.page} {page} {tk.of} {totalPages} · {total} {tk.total}
+                </span>
                 <div className="flex gap-2">
                   <Button
                     variant="outline" size="sm"

@@ -11,14 +11,15 @@ import {
   Loader2, RefreshCw, Activity, Zap, X,
 } from 'lucide-react'
 import { api } from '../../lib/api'
+import { useLanguage } from '../../contexts/LanguageContext'
 import type { StationDetail, BatteryData, BatteryDiagnostics } from '../../types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function healthColor(pct: number) {
-  if (pct >= 80) return { text: 'text-success', bg: 'bg-success', track: 'bg-success/10', label: 'Good' }
-  if (pct >= 50) return { text: 'text-warning', bg: 'bg-warning', track: 'bg-warning/10', label: 'Fair' }
-  return { text: 'text-error', bg: 'bg-error', track: 'bg-error/10', label: 'Poor' }
+  if (pct >= 80) return { text: 'text-success', bg: 'bg-success', track: 'bg-success/10' }
+  if (pct >= 50) return { text: 'text-warning', bg: 'bg-warning', track: 'bg-warning/10' }
+  return { text: 'text-error', bg: 'bg-error', track: 'bg-error/10' }
 }
 
 function chargeColor(pct: number) {
@@ -43,6 +44,8 @@ interface RepairModalProps {
 }
 
 function RepairModal({ battery, onClose, onSubmit }: RepairModalProps) {
+  const { t } = useLanguage()
+  const rm = t.technician.diagnostics.repairModal
   const [issueType, setIssueType] = useState('low_performance')
   const [description, setDescription] = useState('')
   const [priority, setPriority] = useState('medium')
@@ -50,7 +53,7 @@ function RepairModal({ battery, onClose, onSubmit }: RepairModalProps) {
   const [err, setErr] = useState('')
 
   const handleSubmit = async () => {
-    if (!description.trim()) { setErr('Description is required'); return }
+    if (!description.trim()) { setErr(rm.errDescription); return }
     setSaving(true)
     setErr('')
     try {
@@ -67,7 +70,7 @@ function RepairModal({ battery, onClose, onSubmit }: RepairModalProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-semibold">Report Battery Issue</h2>
+          <h2 className="text-lg font-semibold">{rm.title}</h2>
           <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100">
             <X className="w-4 h-4" />
           </button>
@@ -76,51 +79,51 @@ function RepairModal({ battery, onClose, onSubmit }: RepairModalProps) {
         <div className="p-3 bg-gray-50 rounded-lg mb-4 text-sm">
           <p className="font-medium text-gray-800">{battery.serialNumber}</p>
           <p className="text-gray-500 text-xs mt-0.5">
-            Status: {battery.status} · Charge: {battery.chargeLevel}%
+            {rm.statusLine.replace('{status}', battery.status).replace('{n}', String(battery.chargeLevel))}
           </p>
         </div>
 
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="issue-type" className="text-xs">Issue Type</Label>
+            <Label htmlFor="issue-type" className="text-xs">{rm.issueType}</Label>
             <Select id="issue-type" value={issueType} onChange={(e) => setIssueType(e.target.value)}>
-              <option value="low_performance">Low Performance</option>
-              <option value="not_charging">Not Charging</option>
-              <option value="physical_damage">Physical Damage</option>
-              <option value="faulty">Faulty / Defective</option>
-              <option value="other">Other</option>
+              <option value="low_performance">{rm.lowPerf}</option>
+              <option value="not_charging">{rm.notCharging}</option>
+              <option value="physical_damage">{rm.physicalDamage}</option>
+              <option value="faulty">{rm.faultyDefective}</option>
+              <option value="other">{rm.other}</option>
             </Select>
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="description" className="text-xs">Description</Label>
+            <Label htmlFor="description" className="text-xs">{rm.description}</Label>
             <textarea
               id="description"
               rows={3}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe the issue in detail…"
+              placeholder={rm.descPlaceholder}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
             />
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="priority" className="text-xs">Priority</Label>
+            <Label htmlFor="priority" className="text-xs">{rm.priority}</Label>
             <Select id="priority" value={priority} onChange={(e) => setPriority(e.target.value)}>
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
-              <option value="critical">Critical</option>
+              <option value="low">{rm.priorityLow}</option>
+              <option value="medium">{rm.priorityMedium}</option>
+              <option value="high">{rm.priorityHigh}</option>
+              <option value="critical">{rm.priorityCritical}</option>
             </Select>
           </div>
 
           {err && <p className="text-xs text-error flex items-center gap-1"><AlertCircle className="w-3.5 h-3.5" />{err}</p>}
 
           <div className="flex gap-2 pt-1">
-            <Button variant="outline" size="sm" onClick={onClose} className="flex-1">Cancel</Button>
+            <Button variant="outline" size="sm" onClick={onClose} className="flex-1">{rm.cancel}</Button>
             <Button size="sm" onClick={handleSubmit} disabled={saving} className="flex-1">
               {saving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Wrench className="w-4 h-4 mr-1" />}
-              Submit Report
+              {rm.submit}
             </Button>
           </div>
         </div>
@@ -144,7 +147,15 @@ function HealthPanel({
   onRunDiagnostics: () => void
   onReportIssue: () => void
 }) {
+  const { t } = useLanguage()
+  const diag = t.technician.diagnostics
   const hc = diagnostics ? healthColor(diagnostics.healthPercentage) : null
+
+  const getHealthLabel = (pct: number) => {
+    if (pct >= 80) return diag.healthGood
+    if (pct >= 50) return diag.healthFair
+    return diag.healthPoor
+  }
 
   return (
     <div className="space-y-4">
@@ -153,10 +164,10 @@ function HealthPanel({
         <div>
           <p className="font-semibold text-gray-900">{battery.serialNumber}</p>
           <p className="text-xs text-gray-500 mt-0.5">
-            Repair count: {battery.repairCount} ·{' '}
+            {diag.repairCount} {battery.repairCount} ·{' '}
             {battery.lastSwapAt
-              ? `Last swap: ${new Date(battery.lastSwapAt).toLocaleDateString()}`
-              : 'Never swapped'}
+              ? `${diag.lastSwap} ${new Date(battery.lastSwapAt).toLocaleDateString()}`
+              : diag.neverSwapped}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -165,7 +176,7 @@ function HealthPanel({
           </Badge>
           {battery.isFaulty && (
             <Badge variant="destructive" className="text-xs">
-              <AlertTriangle className="w-3 h-3 mr-1" />Faulty
+              <AlertTriangle className="w-3 h-3 mr-1" />{diag.faulty}
             </Badge>
           )}
         </div>
@@ -174,7 +185,7 @@ function HealthPanel({
       {/* Charge level */}
       <div>
         <div className="flex justify-between text-xs text-gray-500 mb-1.5">
-          <span className="flex items-center gap-1"><Zap className="w-3.5 h-3.5" />Charge Level</span>
+          <span className="flex items-center gap-1"><Zap className="w-3.5 h-3.5" />{diag.chargeLevel}</span>
           <span className="font-medium">{battery.chargeLevel}%</span>
         </div>
         <div className="w-full h-2.5 bg-gray-100 rounded-full overflow-hidden">
@@ -195,9 +206,9 @@ function HealthPanel({
           {/* Health score */}
           <div className={`p-4 rounded-xl ${hc!.track}`}>
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-gray-700">Battery Health</span>
+              <span className="text-sm font-medium text-gray-700">{diag.batteryHealth}</span>
               <span className={`text-xl font-bold ${hc!.text}`}>
-                {diagnostics.healthPercentage}% <span className="text-sm font-normal">{hc!.label}</span>
+                {diagnostics.healthPercentage}% <span className="text-sm font-normal">{getHealthLabel(diagnostics.healthPercentage)}</span>
               </span>
             </div>
             <div className="w-full h-2.5 bg-white/60 rounded-full overflow-hidden">
@@ -211,11 +222,11 @@ function HealthPanel({
           {/* Stats grid */}
           <div className="grid grid-cols-2 gap-3 text-sm">
             {[
-              { label: 'Cycle Count', value: diagnostics.cycleCount },
-              { label: 'Remaining Cycles', value: diagnostics.expectedRemainingCycles },
-              { label: 'Age (days)', value: diagnostics.ageInDays },
+              { label: diag.cycleCount, value: diagnostics.cycleCount },
+              { label: diag.remainingCycles, value: diagnostics.expectedRemainingCycles },
+              { label: diag.ageDays, value: diagnostics.ageInDays },
               {
-                label: 'Last Charged',
+                label: diag.lastCharged,
                 value: diagnostics.lastChargedAt
                   ? new Date(diagnostics.lastChargedAt).toLocaleDateString()
                   : '—',
@@ -232,7 +243,7 @@ function HealthPanel({
           {diagnostics.recommendations.length > 0 && (
             <div className="p-4 border border-warning/30 bg-warning/5 rounded-xl">
               <p className="text-xs font-semibold text-warning mb-2 flex items-center gap-1">
-                <AlertTriangle className="w-3.5 h-3.5" />Recommendations
+                <AlertTriangle className="w-3.5 h-3.5" />{diag.recommendations}
               </p>
               <ul className="space-y-1.5">
                 {diagnostics.recommendations.map((rec, i) => (
@@ -249,7 +260,7 @@ function HealthPanel({
           <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
             <Activity className="w-6 h-6 text-gray-400" />
           </div>
-          <p className="text-sm text-gray-600">Run diagnostics to view health data</p>
+          <p className="text-sm text-gray-600">{diag.runDiagnosticsHint}</p>
         </div>
       )}
 
@@ -257,11 +268,11 @@ function HealthPanel({
       <div className="flex gap-2 pt-1">
         <Button variant="outline" onClick={onRunDiagnostics} disabled={loading} className="flex-1">
           {loading ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Activity className="w-4 h-4 mr-1" />}
-          Run Diagnostics
+          {diag.runDiagnostics}
         </Button>
         <Button variant="outline" onClick={onReportIssue} className="flex-1 text-error border-error/30 hover:bg-error/5">
           <Wrench className="w-4 h-4 mr-1" />
-          Report Issue
+          {diag.reportIssue}
         </Button>
       </div>
     </div>
@@ -271,6 +282,8 @@ function HealthPanel({
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export function Diagnostics() {
+  const { t } = useLanguage()
+  const diag = t.technician.diagnostics
   const [stations, setStations] = useState<StationDetail[]>([])
   const [selectedStation, setSelectedStation] = useState('')
   const [batteries, setBatteries] = useState<BatteryData[]>([])
@@ -283,7 +296,6 @@ export function Diagnostics() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState('')
 
-  // Serial search
   const [serialSearch, setSerialSearch] = useState('')
   const [searchLoading, setSearchLoading] = useState(false)
 
@@ -347,7 +359,6 @@ export function Diagnostics() {
       const battery = list[0] as BatteryData
       setSelectedBattery(battery)
       setDiagnostics(null)
-      // Try to select the station
       if (battery.stationId) setSelectedStation(battery.stationId)
     } catch (e: any) {
       setError(e.message || 'Battery not found')
@@ -359,13 +370,12 @@ export function Diagnostics() {
   const handleRepairSubmit = async (issueType: string, description: string, priority: string) => {
     if (!selectedBattery) return
     await api.post(`/batteries/${selectedBattery._id}/repair`, { issueType, description, priority })
-    // Refresh battery status
     const updated = await api.get<BatteryData>(`/batteries/${selectedBattery._id}`)
     if (updated) {
       setSelectedBattery(updated)
       setBatteries((prev) => prev.map((b) => b._id === selectedBattery._id ? updated : b))
     }
-    setSuccess('Repair request submitted and battery marked for repair.')
+    setSuccess(diag.repairSuccess)
     setTimeout(() => setSuccess(''), 5000)
   }
 
@@ -376,8 +386,8 @@ export function Diagnostics() {
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Battery Diagnostics</h1>
-            <p className="text-gray-600 mt-1">Run health checks and report battery issues</p>
+            <h1 className="text-3xl font-bold text-gray-900">{diag.title}</h1>
+            <p className="text-gray-600 mt-1">{diag.subtitle}</p>
           </div>
           <button
             onClick={loadStations}
@@ -407,12 +417,12 @@ export function Diagnostics() {
         {/* Serial search */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle>Find Battery by Serial</CardTitle>
+            <CardTitle>{diag.findBySerial}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex gap-2">
               <Input
-                placeholder="Enter battery serial number…"
+                placeholder={diag.serialPlaceholder}
                 value={serialSearch}
                 onChange={(e) => setSerialSearch(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && searchBySerial()}
@@ -431,24 +441,24 @@ export function Diagnostics() {
           <div className="space-y-4">
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle>Browse Batteries</CardTitle>
+                <CardTitle>{diag.browse}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 {/* Station selector */}
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Select Station</Label>
+                  <Label className="text-xs">{diag.selectStation}</Label>
                   {stationsLoading ? (
                     <div className="flex items-center gap-2 py-2 text-sm text-gray-500">
-                      <Loader2 className="w-4 h-4 animate-spin" />Loading stations…
+                      <Loader2 className="w-4 h-4 animate-spin" />{diag.loadingStations}
                     </div>
                   ) : stations.length === 0 ? (
-                    <p className="text-sm text-gray-500">No stations assigned to you</p>
+                    <p className="text-sm text-gray-500">{diag.noStationsAssigned}</p>
                   ) : (
                     <Select
                       value={selectedStation}
                       onChange={(e) => setSelectedStation(e.target.value)}
                     >
-                      <option value="">Select a station…</option>
+                      <option value="">{diag.selectStationPlaceholder}</option>
                       {stations.map((s) => (
                         <option key={s._id} value={s._id}>{s.name}</option>
                       ))}
@@ -459,13 +469,13 @@ export function Diagnostics() {
                 {/* Battery list */}
                 {selectedStation && (
                   <div className="space-y-1.5">
-                    <Label className="text-xs">Batteries at this station</Label>
+                    <Label className="text-xs">{diag.batteriesAtStation}</Label>
                     {batteriesLoading ? (
                       <div className="flex items-center justify-center py-8">
                         <Loader2 className="w-5 h-5 animate-spin text-primary" />
                       </div>
                     ) : batteries.length === 0 ? (
-                      <p className="text-sm text-gray-500 py-4 text-center">No batteries found</p>
+                      <p className="text-sm text-gray-500 py-4 text-center">{diag.noBatteries}</p>
                     ) : (
                       <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
                         {batteries.map((b) => (
@@ -507,7 +517,7 @@ export function Diagnostics() {
           {/* Right: health panel */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle>Health Analysis</CardTitle>
+              <CardTitle>{diag.healthAnalysis}</CardTitle>
             </CardHeader>
             <CardContent>
               {!selectedBattery ? (
@@ -515,10 +525,8 @@ export function Diagnostics() {
                   <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center">
                     <Battery className="w-7 h-7 text-gray-400" />
                   </div>
-                  <p className="text-sm font-medium text-gray-700">No battery selected</p>
-                  <p className="text-xs text-gray-500">
-                    Search by serial number or select from the station list
-                  </p>
+                  <p className="text-sm font-medium text-gray-700">{diag.noBatterySelected}</p>
+                  <p className="text-xs text-gray-500">{diag.noBatteryDesc}</p>
                 </div>
               ) : (
                 <HealthPanel

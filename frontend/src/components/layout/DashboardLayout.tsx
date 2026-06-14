@@ -23,6 +23,7 @@ import {
 } from 'lucide-react'
 import { Button } from '../ui/button'
 import { SpiroLogo } from '../ui/SpiroLogo'
+import { useLanguage } from '../../contexts/LanguageContext'
 
 interface DashboardLayoutProps {
   children: ReactNode
@@ -33,6 +34,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
+  const { t, toggle } = useLanguage()
+  const L = t.rider.layout
 
   const handleLogout = () => {
     logout()
@@ -43,42 +46,42 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     switch (user?.role) {
       case 'rider':
         return [
-          { icon: LayoutDashboard, label: 'Dashboard', path: '/rider/dashboard' },
-          { icon: MapPin, label: 'Find Stations', path: '/rider/stations' },
-          { icon: Battery, label: 'Request Swap', path: '/rider/swap-request' },
-          { icon: History, label: 'Swap History', path: '/rider/swap-history' },
-          { icon: CreditCard, label: 'Payments', path: '/rider/payments' },
-          { icon: Package, label: 'Subscription', path: '/rider/subscription' },
-          { icon: User, label: 'Profile', path: '/rider/profile' },
-          { icon: HelpCircle, label: 'Support', path: '/rider/support' },
+          { icon: LayoutDashboard, label: L.nav.dashboard, path: '/rider/dashboard' },
+          { icon: MapPin, label: L.nav.stations, path: '/rider/stations' },
+          { icon: Battery, label: L.nav.swap, path: '/rider/swap-request' },
+          { icon: History, label: L.nav.history, path: '/rider/swap-history' },
+          { icon: CreditCard, label: L.nav.payments, path: '/rider/payments' },
+          { icon: Package, label: L.nav.subscription, path: '/rider/subscription' },
+          { icon: User, label: L.nav.profile, path: '/rider/profile' },
+          { icon: HelpCircle, label: L.nav.support, path: '/rider/support' },
         ]
       case 'operator':
         return [
-          { icon: LayoutDashboard, label: 'Dashboard', path: '/operator/dashboard' },
-          { icon: Battery, label: 'Inventory', path: '/operator/inventory' },
-          { icon: Package, label: 'Process Swap', path: '/operator/swap-process' },
-          { icon: ClipboardList, label: 'Reservations', path: '/operator/reservations' },
-          { icon: Wrench, label: 'Maintenance', path: '/operator/maintenance' },
-          { icon: BarChart3, label: 'Analytics', path: '/operator/analytics' },
-          { icon: User, label: 'Profile', path: '/operator/profile' },
+          { icon: LayoutDashboard, label: L.operatorNav.dashboard, path: '/operator/dashboard' },
+          { icon: Battery, label: L.operatorNav.inventory, path: '/operator/inventory' },
+          { icon: Package, label: L.operatorNav.processSwap, path: '/operator/swap-process' },
+          { icon: ClipboardList, label: L.operatorNav.reservations, path: '/operator/reservations' },
+          { icon: Wrench, label: L.operatorNav.maintenance, path: '/operator/maintenance' },
+          { icon: BarChart3, label: L.operatorNav.analytics, path: '/operator/analytics' },
+          { icon: User, label: L.operatorNav.profile, path: '/operator/profile' },
         ]
       case 'technician':
         return [
-          { icon: LayoutDashboard, label: 'Dashboard', path: '/technician/dashboard' },
-          { icon: ClipboardList, label: 'Tasks', path: '/technician/tasks' },
-          { icon: Battery, label: 'Diagnostics', path: '/technician/diagnostics' },
-          { icon: History, label: 'Work History', path: '/technician/history' },
-          { icon: User, label: 'Profile', path: '/technician/profile' },
+          { icon: LayoutDashboard, label: L.technicianNav.dashboard, path: '/technician/dashboard' },
+          { icon: ClipboardList, label: L.technicianNav.tasks, path: '/technician/tasks' },
+          { icon: Battery, label: L.technicianNav.diagnostics, path: '/technician/diagnostics' },
+          { icon: History, label: L.technicianNav.history, path: '/technician/history' },
+          { icon: User, label: L.technicianNav.profile, path: '/technician/profile' },
         ]
       case 'admin':
         return [
-          { icon: LayoutDashboard, label: 'Dashboard', path: '/admin/dashboard' },
-          { icon: Users, label: 'Users', path: '/admin/users' },
-          { icon: MapPin, label: 'Stations', path: '/admin/stations' },
-          { icon: Battery, label: 'Batteries', path: '/admin/batteries' },
-          { icon: CreditCard, label: 'Finance', path: '/admin/finance' },
-          { icon: BarChart3, label: 'Analytics', path: '/admin/analytics' },
-          { icon: Settings, label: 'Settings', path: '/admin/settings' },
+          { icon: LayoutDashboard, label: L.adminNav.dashboard, path: '/admin/dashboard' },
+          { icon: Users, label: L.adminNav.users, path: '/admin/users' },
+          { icon: MapPin, label: L.adminNav.stations, path: '/admin/stations' },
+          { icon: Battery, label: L.adminNav.batteries, path: '/admin/batteries' },
+          { icon: CreditCard, label: L.adminNav.finance, path: '/admin/finance' },
+          { icon: BarChart3, label: L.adminNav.analytics, path: '/admin/analytics' },
+          { icon: Settings, label: L.adminNav.settings, path: '/admin/settings' },
         ]
       default:
         return []
@@ -106,7 +109,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             </div>
 
             <div className="flex items-center space-x-4">
-              <button className="text-gray-500 hover:text-gray-700">
+              <button onClick={toggle} className="text-gray-500 hover:text-gray-700" aria-label="Switch language">
                 <Globe className="w-5 h-5" />
               </button>
               <button className="text-gray-500 hover:text-gray-700 relative">
@@ -165,7 +168,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               onClick={handleLogout}
             >
               <LogOut className="w-5 h-5 mr-3" />
-              <span className="text-sm font-medium">Logout</span>
+              <span className="text-sm font-medium">{L.logout}</span>
             </Button>
           </div>
         </nav>

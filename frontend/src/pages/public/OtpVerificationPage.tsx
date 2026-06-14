@@ -4,6 +4,7 @@ import { api } from '../../lib/api'
 import { Button } from '../../components/ui/button'
 import { CheckCircle, RefreshCw, ArrowLeft, Eye } from 'lucide-react'
 import { SpiroLogo } from '../../components/ui/SpiroLogo'
+import { useLanguage } from '../../contexts/LanguageContext'
 
 const IS_DEV = import.meta.env.DEV
 
@@ -19,6 +20,8 @@ export function OtpVerificationPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const { userId, phone } = (location.state as { userId: string; phone: string }) || {}
+  const { t } = useLanguage()
+  const o = t.auth.otp
 
   /* ── Auto-fetch OTP in dev mode ── */
   useEffect(() => {
@@ -37,8 +40,8 @@ export function OtpVerificationPage() {
       }
     }
     // Small delay to let the backend finish writing the OTP to MongoDB
-    const t = setTimeout(fetchDevOtp, 800)
-    return () => clearTimeout(t)
+    const timer = setTimeout(fetchDevOtp, 800)
+    return () => clearTimeout(timer)
   }, [phone])
 
   /* ── Auto-fill the input boxes when devOtp arrives ── */
@@ -52,8 +55,8 @@ export function OtpVerificationPage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <p className="text-gray-600 mb-4">Invalid session. Please register again.</p>
-          <Link to="/register" className="text-primary font-semibold">Go to Register</Link>
+          <p className="text-gray-600 mb-4">{o.invalidSession}</p>
+          <Link to="/register" className="text-primary font-semibold">{o.goToRegister}</Link>
         </div>
       </div>
     )
@@ -85,7 +88,7 @@ export function OtpVerificationPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     const fullCode = code.join('')
-    if (fullCode.length !== 6) { setError('Please enter the full 6-digit code'); return }
+    if (fullCode.length !== 6) { setError(o.errFullCode); return }
     setError('')
     setIsLoading(true)
 
@@ -94,7 +97,7 @@ export function OtpVerificationPage() {
       setIsSuccess(true)
       setTimeout(() => navigate('/login'), 2500)
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Invalid OTP code. Please try again.')
+      setError(err.response?.data?.message || o.errInvalidOtp)
     } finally {
       setIsLoading(false)
     }
@@ -107,7 +110,6 @@ export function OtpVerificationPage() {
     setCode(['', '', '', '', '', ''])
     try {
       await api.post('/auth/resend-otp', { phone })
-      // Re-fetch dev OTP after resend
       if (IS_DEV) {
         setTimeout(async () => {
           try {
@@ -119,7 +121,7 @@ export function OtpVerificationPage() {
         }, 800)
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to resend OTP.')
+      setError(err.response?.data?.message || o.errResend)
     } finally {
       setIsResending(false)
     }
@@ -133,7 +135,7 @@ export function OtpVerificationPage() {
           to="/register"
           className="flex items-center gap-2 text-white/80 hover:text-white transition-colors text-sm"
         >
-          <ArrowLeft className="w-4 h-4" /> Back to Register
+          <ArrowLeft className="w-4 h-4" /> {o.backToRegister}
         </Link>
       </div>
 
@@ -149,15 +151,15 @@ export function OtpVerificationPage() {
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <CheckCircle className="w-10 h-10 text-green-500" />
               </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Account Verified!</h2>
-              <p className="text-gray-600">Redirecting you to login…</p>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">{o.successTitle}</h2>
+              <p className="text-gray-600">{o.successDesc}</p>
             </div>
           ) : (
             <>
               <div className="text-center mb-8">
-                <h1 className="text-2xl font-bold text-gray-900 mb-2">Verify Your Phone</h1>
+                <h1 className="text-2xl font-bold text-gray-900 mb-2">{o.title}</h1>
                 <p className="text-gray-600 text-sm">
-                  Enter the 6-digit code sent to{' '}
+                  {o.subtitle}{' '}
                   <span className="font-semibold text-primary">{phone}</span>
                 </p>
 
@@ -166,22 +168,22 @@ export function OtpVerificationPage() {
                   <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm">
                     <div className="flex items-center justify-center gap-2 text-amber-700 font-semibold mb-1">
                       <Eye className="w-4 h-4" />
-                      Development Mode — OTP Preview
+                      {o.devModeTitle}
                     </div>
                     {isFetchingDevOtp ? (
-                      <p className="text-amber-600 text-xs">Fetching OTP…</p>
+                      <p className="text-amber-600 text-xs">{o.devFetching}</p>
                     ) : devOtp ? (
                       <div className="flex items-center justify-center gap-3 mt-2">
                         <span className="text-2xl font-black tracking-[0.3em] text-primary">
                           {devOtp}
                         </span>
                         <span className="text-xs text-green-600 font-medium bg-green-100 px-2 py-0.5 rounded-full">
-                          ✓ Auto-filled
+                          {o.devAutoFilled}
                         </span>
                       </div>
                     ) : (
                       <p className="text-amber-600 text-xs">
-                        Could not fetch OTP — check backend console
+                        {o.devFetchFailed}
                       </p>
                     )}
                   </div>
@@ -219,7 +221,7 @@ export function OtpVerificationPage() {
                   className="w-full bg-black hover:bg-gray-900 text-white h-12 text-base font-semibold"
                   disabled={isLoading || code.join('').length !== 6}
                 >
-                  {isLoading ? 'Verifying…' : 'Verify Account'}
+                  {isLoading ? o.verifying : o.verifyBtn}
                 </Button>
 
                 <div className="text-center">
@@ -230,7 +232,7 @@ export function OtpVerificationPage() {
                     className="flex items-center gap-2 mx-auto text-sm text-gray-600 hover:text-primary transition-colors"
                   >
                     <RefreshCw className={`w-4 h-4 ${isResending ? 'animate-spin' : ''}`} />
-                    {isResending ? 'Sending…' : "Didn't receive a code? Resend"}
+                    {isResending ? o.resending : o.resendBtn}
                   </button>
                 </div>
               </form>

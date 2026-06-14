@@ -14,6 +14,7 @@ import {
 } from 'recharts'
 import { api } from '../../lib/api'
 import { useAuth } from '../../contexts/AuthContext'
+import { useLanguage } from '../../contexts/LanguageContext'
 import type { StationDetail, StationBreakdown, DailyStat } from '../../types'
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -65,6 +66,8 @@ function buildPreset(days: number): { startDate: string; endDate: string } {
 
 export function OperatorAnalytics() {
   const { user } = useAuth()
+  const { t } = useLanguage()
+  const a = t.operator.analytics
   const [station, setStation] = useState<StationDetail | null>(null)
   const [breakdown, setBreakdown] = useState<StationBreakdown | null>(null)
   const [daily, setDaily] = useState<DailyStat[]>([])
@@ -159,9 +162,9 @@ export function OperatorAnalytics() {
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Station Analytics</h1>
+            <h1 className="text-3xl font-bold text-gray-900">{a.title}</h1>
             <p className="text-gray-600 mt-1">
-              {station ? `${station.name} — performance metrics and insights` : 'Performance metrics and insights'}
+              {station ? `${station.name} — ${a.subtitleStation}` : a.subtitle}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -172,7 +175,7 @@ export function OperatorAnalytics() {
               disabled={exporting || !station}
             >
               {exporting ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Download className="w-4 h-4 mr-1" />}
-              Export
+              {a.export}
             </Button>
             <button
               onClick={initialLoad}
@@ -187,7 +190,7 @@ export function OperatorAnalytics() {
           <div className="flex items-center gap-3 p-4 bg-error/5 border border-error/20 rounded-xl text-sm text-error">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{error}</span>
-            <Button variant="ghost" size="sm" onClick={initialLoad} className="ml-auto text-error">Retry</Button>
+            <Button variant="ghost" size="sm" onClick={initialLoad} className="ml-auto text-error">{a.retry}</Button>
           </div>
         )}
 
@@ -196,19 +199,19 @@ export function OperatorAnalytics() {
           <CardContent className="pt-4 pb-4">
             <div className="flex flex-wrap items-end gap-3">
               <div className="space-y-1">
-                <Label className="text-xs">From</Label>
+                <Label className="text-xs">{a.from}</Label>
                 <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-36" />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">To</Label>
+                <Label className="text-xs">{a.to}</Label>
                 <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-36" />
               </div>
-              <Button size="sm" onClick={applyDateRange} disabled={isLoading}>Apply</Button>
+              <Button size="sm" onClick={applyDateRange} disabled={isLoading}>{a.apply}</Button>
               <div className="flex gap-1.5 ml-auto">
                 {[
-                  { label: 'Today', days: 1 },
-                  { label: '7 days', days: 7 },
-                  { label: '30 days', days: 30 },
+                  { label: a.presetToday, days: 1 },
+                  { label: a.preset7, days: 7 },
+                  { label: a.preset30, days: 30 },
                 ].map(({ label, days }) => (
                   <button
                     key={label}
@@ -238,23 +241,23 @@ export function OperatorAnalytics() {
         ) : (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <KpiCard
-              label="Total Swaps"
+              label={a.kpiSwaps}
               value={breakdown?.totalSwaps ?? 0}
               icon={<TrendingUp className="w-5 h-5" />}
               sub={`${startDate} to ${endDate}`}
             />
             <KpiCard
-              label="Total Revenue"
+              label={a.kpiRevenue}
               value={fmtRwf(breakdown?.revenueRwf ?? 0)}
               icon={<DollarSign className="w-5 h-5" />}
             />
             <KpiCard
-              label="Avg Wait Time"
+              label={a.kpiWait}
               value={`${breakdown?.avgWaitTimeMinutes ?? 0} min`}
               icon={<Clock className="w-5 h-5" />}
             />
             <KpiCard
-              label="Maintenance Issues"
+              label={a.kpiMaintenance}
               value={breakdown?.maintenanceIncidents ?? 0}
               icon={<Wrench className="w-5 h-5" />}
             />
@@ -264,14 +267,14 @@ export function OperatorAnalytics() {
         {/* Daily chart */}
         <Card>
           <CardHeader>
-            <CardTitle>Daily Swap Activity</CardTitle>
+            <CardTitle>{a.chartTitle}</CardTitle>
           </CardHeader>
           <CardContent>
             {isLoading ? (
               <div className="h-64 bg-gray-100 rounded-lg animate-pulse" />
             ) : chartData.length === 0 ? (
               <div className="flex items-center justify-center h-48 text-gray-400">
-                <p className="text-sm">No data for this period</p>
+                <p className="text-sm">{a.chartEmpty}</p>
               </div>
             ) : (
               <ResponsiveContainer width="100%" height={280}>
@@ -282,14 +285,14 @@ export function OperatorAnalytics() {
                   <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} unit="K" />
                   <Tooltip
                     formatter={(value: unknown, name: unknown) => [
-                      name === 'revenue' ? `RWF ${(Number(value) * 1000).toLocaleString()}` : String(value ?? ''),
-                      name === 'revenue' ? 'Revenue' : 'Swaps',
+                      name === a.chartRevenue ? `RWF ${(Number(value) * 1000).toLocaleString()}` : String(value ?? ''),
+                      name as string,
                     ] as [string, string]}
                     contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: 12 }}
                   />
                   <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
-                  <Bar yAxisId="left" dataKey="swaps" name="Swaps" fill="var(--color-primary, #3b82f6)" radius={[3, 3, 0, 0]} />
-                  <Bar yAxisId="right" dataKey="revenue" name="Revenue (RWF K)" fill="var(--color-success, #22c55e)" radius={[3, 3, 0, 0]} />
+                  <Bar yAxisId="left" dataKey="swaps" name={a.chartSwaps} fill="var(--color-primary, #3b82f6)" radius={[3, 3, 0, 0]} />
+                  <Bar yAxisId="right" dataKey="revenue" name={a.chartRevenue} fill="var(--color-success, #22c55e)" radius={[3, 3, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -300,27 +303,27 @@ export function OperatorAnalytics() {
         {station && !isLoading && (
           <Card>
             <CardHeader>
-              <CardTitle>Current Battery Stock</CardTitle>
+              <CardTitle>{a.stockTitle}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid sm:grid-cols-3 gap-6">
                 <div className="text-center">
                   <p className="text-3xl font-bold text-success">{station.availableBatteries}</p>
-                  <p className="text-sm text-gray-600 mt-1">Available</p>
+                  <p className="text-sm text-gray-600 mt-1">{a.stockAvailable}</p>
                 </div>
                 <div className="text-center">
                   <p className="text-3xl font-bold text-warning">{station.chargingBatteries}</p>
-                  <p className="text-sm text-gray-600 mt-1">Charging</p>
+                  <p className="text-sm text-gray-600 mt-1">{a.stockCharging}</p>
                 </div>
                 <div className="text-center">
                   <p className="text-3xl font-bold text-gray-900">{station.totalSlots}</p>
-                  <p className="text-sm text-gray-600 mt-1">Total Slots</p>
+                  <p className="text-sm text-gray-600 mt-1">{a.stockTotal}</p>
                 </div>
               </div>
               {/* Fill-level bar */}
               <div className="mt-4">
                 <div className="flex justify-between text-xs text-gray-500 mb-1">
-                  <span>Station fill level</span>
+                  <span>{a.fillLevel}</span>
                   <span>{station.totalSlots > 0 ? Math.round(((station.availableBatteries + station.chargingBatteries) / station.totalSlots) * 100) : 0}%</span>
                 </div>
                 <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">

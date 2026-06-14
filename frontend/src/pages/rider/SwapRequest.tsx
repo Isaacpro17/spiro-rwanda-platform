@@ -13,6 +13,7 @@ import {
 import { api } from '../../lib/api'
 import { useReservations } from '../../hooks/useReservations'
 import type { Station, SlotReservationDetail } from '../../types'
+import { useLanguage } from '../../contexts/LanguageContext'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -40,6 +41,8 @@ interface Confirmation {
 }
 
 function ConfirmationPanel({ confirmation, onDone }: { confirmation: Confirmation; onDone: () => void }) {
+  const { t } = useLanguage()
+  const s = t.rider.swap
   return (
     <Card className="border-success border-2">
       <CardContent className="pt-6">
@@ -48,29 +51,29 @@ function ConfirmationPanel({ confirmation, onDone }: { confirmation: Confirmatio
             <CheckCircle className="w-8 h-8 text-success" />
           </div>
           <div>
-            <h3 className="text-xl font-bold text-gray-900">Reservation Confirmed!</h3>
-            <p className="text-gray-600 mt-1 text-sm">Show this code to the station operator</p>
+            <h3 className="text-xl font-bold text-gray-900">{s.confirmTitle}</h3>
+            <p className="text-gray-600 mt-1 text-sm">{s.confirmDesc}</p>
           </div>
 
           <div className="w-full bg-gray-50 rounded-xl p-4 space-y-3 text-sm">
             <div className="flex justify-between">
-              <span className="text-gray-500">Station</span>
+              <span className="text-gray-500">{s.confirmStation}</span>
               <span className="font-semibold text-gray-900">{confirmation.stationName}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-500">Time</span>
+              <span className="text-gray-500">{s.confirmTime}</span>
               <span className="font-semibold text-gray-900">{formatDateTime(confirmation.reservedTime)}</span>
             </div>
             {confirmation.queuePosition && (
               <div className="flex justify-between">
-                <span className="text-gray-500">Queue Position</span>
+                <span className="text-gray-500">{s.confirmQueuePos}</span>
                 <span className="font-semibold text-gray-900">#{confirmation.queuePosition}</span>
               </div>
             )}
           </div>
 
           <div className="w-full bg-primary/5 border border-primary/20 rounded-xl p-4">
-            <p className="text-xs text-primary font-medium uppercase tracking-wider mb-1">Cancellation Code</p>
+            <p className="text-xs text-primary font-medium uppercase tracking-wider mb-1">{s.confirmCancellationCode}</p>
             <p className="text-3xl font-mono font-bold text-primary tracking-widest">
               {confirmation.cancellationCode}
             </p>
@@ -78,13 +81,11 @@ function ConfirmationPanel({ confirmation, onDone }: { confirmation: Confirmatio
 
           <div className="flex items-start gap-2 bg-warning/5 border border-warning/20 rounded-lg p-3 text-left">
             <Info className="w-4 h-4 text-warning shrink-0 mt-0.5" />
-            <p className="text-xs text-warning">
-              Your slot is held for 15 minutes after your reserved time. The operator will use this code to process your swap.
-            </p>
+            <p className="text-xs text-warning">{s.slotHeldWarning}</p>
           </div>
 
           <Button onClick={onDone} className="w-full">
-            Done
+            {s.done}
           </Button>
         </div>
       </CardContent>
@@ -103,6 +104,8 @@ function ReservationRow({
   onCancel: (id: string) => void
   isCancelling: boolean
 }) {
+  const { t } = useLanguage()
+  const s = t.rider.swap
   return (
     <div className="flex items-start justify-between p-4 border border-gray-100 rounded-xl hover:border-primary/30 transition-colors bg-white">
       <div className="flex items-start gap-3">
@@ -134,7 +137,7 @@ function ReservationRow({
         {isCancelling ? (
           <Loader2 className="w-4 h-4 animate-spin" />
         ) : (
-          'Cancel'
+          s.cancel
         )}
       </button>
     </div>
@@ -144,10 +147,11 @@ function ReservationRow({
 // ── Guidance Steps ────────────────────────────────────────────────────────────
 
 function GuidanceSteps({ steps }: { steps: string[] }) {
+  const { t } = useLanguage()
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">How It Works</CardTitle>
+        <CardTitle className="text-base">{t.rider.swap.howItWorks}</CardTitle>
       </CardHeader>
       <CardContent>
         <ol className="space-y-3">
@@ -175,6 +179,8 @@ interface QueueState {
 }
 
 function WalkInQueueCard({ stations }: { stations: Station[] }) {
+  const { t } = useLanguage()
+  const s = t.rider.swap
   const [selectedStationId, setSelectedStationId] = useState('')
   const [queueInfo, setQueueInfo] = useState<{ length: number; estimatedWait: number } | null>(null)
   const [myQueue, setMyQueue] = useState<QueueState | null>(null)
@@ -296,7 +302,7 @@ function WalkInQueueCard({ stations }: { stations: Station[] }) {
       <Card>
         <CardContent className="pt-6 pb-6 flex items-center justify-center gap-2 text-gray-400 text-sm">
           <Loader2 className="w-4 h-4 animate-spin" />
-          Checking queue status…
+          {s.checkingQueue}
         </CardContent>
       </Card>
     )
@@ -309,9 +315,9 @@ function WalkInQueueCard({ stations }: { stations: Station[] }) {
           <div>
             <CardTitle className="text-base flex items-center gap-2">
               <Users className="w-4 h-4 text-primary" />
-              Walk-In Queue
+              {s.walkInTitle}
             </CardTitle>
-            <p className="text-xs text-gray-500 mt-0.5">Already at a station? Join the live queue</p>
+            <p className="text-xs text-gray-500 mt-0.5">{s.walkInSubtitle}</p>
           </div>
         </div>
       </CardHeader>
@@ -326,19 +332,21 @@ function WalkInQueueCard({ stations }: { stations: Station[] }) {
                   {myQueue.position}
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-gray-900">You're #{myQueue.position} in line</p>
+                  <p className="text-sm font-semibold text-gray-900">
+                    {s.youAreInLine.replace('{pos}', String(myQueue.position))}
+                  </p>
                   <p className="text-xs text-gray-500">{myQueue.stationName}</p>
                 </div>
               </div>
-              <Badge variant="default" className="text-xs">In Queue</Badge>
+              <Badge variant="default" className="text-xs">{s.inQueue}</Badge>
             </div>
             <div className="flex items-center gap-1.5 text-xs text-gray-600">
               <Clock className="w-3.5 h-3.5" />
-              Estimated wait: ~{myQueue.estimatedWait} min
+              {s.estimatedWait.replace('{min}', String(myQueue.estimatedWait))}
             </div>
             <div className="flex items-start gap-2 bg-white/60 rounded-lg p-2.5 text-xs text-gray-600">
               <Zap className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
-              Go to the operator and say your name. They will call you when it's your turn.
+              {s.goToOperator}
             </div>
             <Button
               variant="outline"
@@ -348,8 +356,8 @@ function WalkInQueueCard({ stations }: { stations: Station[] }) {
               className="w-full text-error border-error/20 hover:bg-error/5"
             >
               {leaving
-                ? <><Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />Leaving…</>
-                : <><LogOut className="w-3.5 h-3.5 mr-1.5" />Leave Queue</>
+                ? <><Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />{s.leaving}</>
+                : <><LogOut className="w-3.5 h-3.5 mr-1.5" />{s.leaveQueue}</>
               }
             </Button>
           </div>
@@ -358,16 +366,16 @@ function WalkInQueueCard({ stations }: { stations: Station[] }) {
         {!myQueue && (
           <>
             <div className="space-y-1.5">
-              <Label className="text-xs">Select station you're at</Label>
+              <Label className="text-xs">{s.selectStationAt}</Label>
               <select
                 value={selectedStationId}
                 onChange={(e) => handleStationChange(e.target.value)}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
               >
-                <option value="">Choose a station…</option>
-                {activeStations.map((s) => (
-                  <option key={s._id} value={s._id}>
-                    {s.name} — {s.availableBatteries} batteries available
+                <option value="">{s.chooseStation}</option>
+                {activeStations.map((st) => (
+                  <option key={st._id} value={st._id}>
+                    {st.name} — {st.availableBatteries} batteries available
                   </option>
                 ))}
               </select>
@@ -419,14 +427,12 @@ function WalkInQueueCard({ stations }: { stations: Station[] }) {
               className="w-full"
             >
               {joining
-                ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Joining…</>
-                : <><LogIn className="w-4 h-4 mr-2" />Join Queue</>
+                ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />{s.joining}</>
+                : <><LogIn className="w-4 h-4 mr-2" />{s.joinQueue}</>
               }
             </Button>
 
-            <p className="text-xs text-gray-400 text-center">
-              Only join if you're physically at the station
-            </p>
+            <p className="text-xs text-gray-400 text-center">{s.onlyJoinIfAt}</p>
           </>
         )}
       </CardContent>
@@ -437,6 +443,9 @@ function WalkInQueueCard({ stations }: { stations: Station[] }) {
 // ── Page Component ─────────────────────────────────────────────────────────────
 
 export function SwapRequest() {
+  const { t } = useLanguage()
+  const s = t.rider.swap
+
   // ── External state ──
   const { reservations, isLoading: reservLoading, refresh: refreshReservations, cancelReservation, isCancelling } = useReservations()
 
@@ -541,8 +550,8 @@ export function SwapRequest() {
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Battery Swap</h1>
-            <p className="text-gray-600 mt-1">Reserve a slot or join the walk-in queue</p>
+            <h1 className="text-3xl font-bold text-gray-900">{s.title}</h1>
+            <p className="text-gray-600 mt-1">{s.subtitle}</p>
           </div>
           <button
             onClick={() => { loadStations(); refreshReservations() }}
@@ -563,8 +572,8 @@ export function SwapRequest() {
             ) : (
               <Card>
                 <CardHeader>
-                  <CardTitle>Reserve a Slot</CardTitle>
-                  <p className="text-xs text-gray-500 mt-0.5">Book ahead — up to 24 hours in advance</p>
+                  <CardTitle>{s.reserveSlot}</CardTitle>
+                  <p className="text-xs text-gray-500 mt-0.5">{s.reserveSubtitle}</p>
                 </CardHeader>
                 <CardContent>
 
@@ -572,9 +581,7 @@ export function SwapRequest() {
                   {hasActiveReservation && (
                     <div className="flex items-start gap-3 p-4 bg-warning/5 border border-warning/20 rounded-xl text-sm text-warning mb-6">
                       <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                      <span>
-                        You already have an active reservation. Cancel it below before creating a new one.
-                      </span>
+                      <span>{s.hasActiveWarning}</span>
                     </div>
                   )}
 
@@ -589,7 +596,7 @@ export function SwapRequest() {
 
                     {/* Station Select */}
                     <div className="space-y-2">
-                      <Label htmlFor="station">Select Station</Label>
+                      <Label htmlFor="station">{s.selectStation}</Label>
                       {stationsLoading ? (
                         <div className="h-10 bg-gray-100 rounded-md animate-pulse" />
                       ) : (
@@ -625,7 +632,7 @@ export function SwapRequest() {
 
                     {/* Date/Time Picker */}
                     <div className="space-y-2">
-                      <Label htmlFor="reservedTime">Preferred Time</Label>
+                      <Label htmlFor="reservedTime">{s.preferredTime}</Label>
                       <input
                         id="reservedTime"
                         type="datetime-local"
@@ -638,7 +645,7 @@ export function SwapRequest() {
                       />
                       <p className="text-xs text-gray-500 flex items-center gap-1">
                         <Clock className="w-3.5 h-3.5" />
-                        Slots can be reserved up to 24 hours in advance
+                        {s.slotsNote}
                       </p>
                     </div>
 
@@ -648,9 +655,9 @@ export function SwapRequest() {
                       disabled={isSubmitting || hasActiveReservation || stationsLoading}
                     >
                       {isSubmitting ? (
-                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Reserving…</>
+                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> {s.reserving}</>
                       ) : (
-                        <><Battery className="w-4 h-4 mr-2" /> Reserve Slot</>
+                        <><Battery className="w-4 h-4 mr-2" /> {s.reserveBtn}</>
                       )}
                     </Button>
                   </form>
@@ -672,7 +679,7 @@ export function SwapRequest() {
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-base">Active Reservations</CardTitle>
+                  <CardTitle className="text-base">{s.activeReservations}</CardTitle>
                   {!reservLoading && reservations.length > 0 && (
                     <Badge variant="default" className="text-xs">{reservations.length}</Badge>
                   )}
@@ -688,8 +695,8 @@ export function SwapRequest() {
                 ) : reservations.length === 0 ? (
                   <div className="flex flex-col items-center gap-2 py-6 text-center">
                     <CalendarClock className="w-9 h-9 text-gray-300" />
-                    <p className="text-sm font-medium text-gray-700">No active reservations</p>
-                    <p className="text-xs text-gray-500">Make a reservation using the form</p>
+                    <p className="text-sm font-medium text-gray-700">{s.noActiveReservations}</p>
+                    <p className="text-xs text-gray-500">{s.noActiveReservationsDesc}</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -712,7 +719,9 @@ export function SwapRequest() {
                 <div className="flex items-center gap-2 text-xs text-primary">
                   <MapPin className="w-3.5 h-3.5 shrink-0" />
                   <span>
-                    {stations.filter((s) => s.availableBatteries > 0).length} of {stations.length} stations have available batteries
+                    {s.stationsAvailable
+                      .replace('{n}', String(stations.filter((st) => st.availableBatteries > 0).length))
+                      .replace('{total}', String(stations.length))}
                   </span>
                 </div>
               </div>

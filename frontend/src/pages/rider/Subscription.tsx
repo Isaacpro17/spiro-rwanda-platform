@@ -8,6 +8,7 @@ import {
   CreditCard, Gift, Zap, XCircle,
 } from 'lucide-react'
 import { api } from '../../lib/api'
+import { useLanguage } from '../../contexts/LanguageContext'
 import type { SubscriptionPlanData, RiderProfileData } from '../../types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -27,12 +28,16 @@ interface PlanCardProps {
 }
 
 function PlanCard({ plan, isCurrent, isSubscribing, walletBalance, onSubscribe }: PlanCardProps) {
+  const { t } = useLanguage()
+  const s = t.rider.subscription
   const canAfford = walletBalance >= plan.priceRwf
   const features = [
-    plan.swapsPerMonth ? `${plan.swapsPerMonth} swaps/month` : 'Unlimited swaps',
-    `${plan.loyaltyPointsPerSwap ?? 10} loyalty pts/swap`,
-    '24/7 support access',
-    'Priority station access',
+    plan.swapsPerMonth
+      ? s.swapsPerMonth.replace('{n}', String(plan.swapsPerMonth))
+      : s.unlimitedSwaps,
+    s.loyaltyPtsSwap.replace('{n}', String(plan.loyaltyPointsPerSwap ?? 10)),
+    s.support247,
+    s.priorityAccess,
   ]
 
   return (
@@ -40,7 +45,7 @@ function PlanCard({ plan, isCurrent, isSubscribing, walletBalance, onSubscribe }
       {isCurrent && (
         <div className="absolute -top-3 left-1/2 -translate-x-1/2">
           <span className="bg-primary text-white text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1">
-            <Star className="w-3 h-3" /> Current Plan
+            <Star className="w-3 h-3" /> {s.currentPlanBadge}
           </span>
         </div>
       )}
@@ -48,7 +53,7 @@ function PlanCard({ plan, isCurrent, isSubscribing, walletBalance, onSubscribe }
         <CardTitle className="text-lg">{plan.name}</CardTitle>
         <CardDescription>
           <span className="text-3xl font-bold text-gray-900">{formatRwf(plan.priceRwf)}</span>
-          <span className="text-gray-500 text-sm">/month</span>
+          <span className="text-gray-500 text-sm">/{s.month}</span>
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -63,7 +68,7 @@ function PlanCard({ plan, isCurrent, isSubscribing, walletBalance, onSubscribe }
 
         {isCurrent ? (
           <Button variant="default" className="w-full" disabled>
-            <Check className="w-4 h-4 mr-2" /> Active Plan
+            <Check className="w-4 h-4 mr-2" /> {s.activePlan}
           </Button>
         ) : (
           <>
@@ -74,17 +79,17 @@ function PlanCard({ plan, isCurrent, isSubscribing, walletBalance, onSubscribe }
               onClick={() => onSubscribe(plan._id)}
             >
               {isSubscribing ? (
-                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Processing…</>
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> {s.processing}</>
               ) : canAfford ? (
-                <><Zap className="w-4 h-4 mr-2" /> Subscribe — {formatRwf(plan.priceRwf)}</>
+                <><Zap className="w-4 h-4 mr-2" /> {s.subscribeTo} — {formatRwf(plan.priceRwf)}</>
               ) : (
-                'Insufficient Balance'
+                s.insufficientBalance
               )}
             </Button>
             {!canAfford && (
               <p className="text-xs text-gray-500 text-center mt-2">
-                Need {formatRwf(plan.priceRwf - walletBalance)} more.{' '}
-                <Link to="/rider/payments" className="text-primary hover:underline">Top up wallet</Link>
+                {s.needMore.replace('{amount}', formatRwf(plan.priceRwf - walletBalance))}{' '}
+                <Link to="/rider/payments" className="text-primary hover:underline">{s.topUpWallet}</Link>
               </p>
             )}
           </>
@@ -97,6 +102,9 @@ function PlanCard({ plan, isCurrent, isSubscribing, walletBalance, onSubscribe }
 // ── Page Component ─────────────────────────────────────────────────────────────
 
 export function Subscription() {
+  const { t } = useLanguage()
+  const s = t.rider.subscription
+
   const [plans, setPlans] = useState<SubscriptionPlanData[]>([])
   const [currentPlanId, setCurrentPlanId] = useState<string | null>(null)
   const [walletBalance, setWalletBalance] = useState(0)
@@ -156,8 +164,8 @@ export function Subscription() {
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Subscription</h1>
-            <p className="text-gray-600 mt-1">Choose the plan that fits your riding needs</p>
+            <h1 className="text-3xl font-bold text-gray-900">{s.title}</h1>
+            <p className="text-gray-600 mt-1">{s.subtitle}</p>
           </div>
           <button
             onClick={load}
@@ -191,7 +199,7 @@ export function Subscription() {
                   <CreditCard className="w-5 h-5 text-primary" />
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500">Wallet Balance</p>
+                  <p className="text-xs text-gray-500">{s.walletBalance}</p>
                   <p className="text-base font-bold text-gray-900">
                     {isLoading ? '—' : 'RWF ' + walletBalance.toLocaleString()}
                   </p>
@@ -206,7 +214,7 @@ export function Subscription() {
                   <Gift className="w-5 h-5 text-warning" />
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500">Loyalty Points</p>
+                  <p className="text-xs text-gray-500">{s.loyaltyPoints}</p>
                   <p className="text-base font-bold text-gray-900">
                     {isLoading ? '—' : loyaltyPoints.toLocaleString()}
                   </p>
@@ -221,9 +229,9 @@ export function Subscription() {
                   <Star className="w-5 h-5 text-success" />
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500">Current Plan</p>
+                  <p className="text-xs text-gray-500">{s.currentPlan}</p>
                   <p className="text-base font-bold text-gray-900">
-                    {isLoading ? '—' : currentPlan?.name ?? 'None'}
+                    {isLoading ? '—' : currentPlan?.name ?? s.none}
                   </p>
                 </div>
               </div>
@@ -237,7 +245,7 @@ export function Subscription() {
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{error}</span>
             <Button variant="ghost" size="sm" onClick={load} className="ml-auto text-error">
-              Retry
+              {s.retry}
             </Button>
           </div>
         )}
@@ -266,8 +274,8 @@ export function Subscription() {
               <Star className="w-7 h-7 text-gray-400" />
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-700">No plans available</p>
-              <p className="text-xs text-gray-500 mt-1">Check back soon for subscription options</p>
+              <p className="text-sm font-medium text-gray-700">{s.noPlans}</p>
+              <p className="text-xs text-gray-500 mt-1">{s.noPlansDesc}</p>
             </div>
           </div>
         ) : (
@@ -290,7 +298,7 @@ export function Subscription() {
               <div className="flex items-center gap-3 p-4 bg-warning/5 border border-warning/20 rounded-xl text-sm text-warning">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 <span>
-                  Your wallet is empty. <Link to="/rider/payments" className="font-semibold underline">Top up your wallet</Link> to subscribe to a plan.
+                  {s.emptyWallet} <Link to="/rider/payments" className="font-semibold underline">{s.topUpToSubscribe}</Link>
                 </span>
               </div>
             )}

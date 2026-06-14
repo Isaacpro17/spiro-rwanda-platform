@@ -11,6 +11,7 @@ import {
   ChevronLeft, ChevronRight, X, Activity, Battery, Power, Users,
 } from 'lucide-react'
 import { api } from '../../lib/api'
+import { useLanguage } from '../../contexts/LanguageContext'
 import type { StationDetail } from '../../types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -43,6 +44,8 @@ interface StationModalProps {
 }
 
 function StationModal({ station, onClose, onSave }: StationModalProps) {
+  const { t } = useLanguage()
+  const sm = t.admin.stations.stationModal
   const isEdit = !!station
   const [name, setName] = useState(station?.name ?? '')
   const [address, setAddress] = useState(station?.address ?? '')
@@ -58,7 +61,7 @@ function StationModal({ station, onClose, onSave }: StationModalProps) {
 
   const handleSave = async () => {
     if (!name.trim() || !address.trim()) {
-      setError('Name and address are required')
+      setError(sm.errRequired)
       return
     }
     setSaving(true)
@@ -93,7 +96,7 @@ function StationModal({ station, onClose, onSave }: StationModalProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 overflow-y-auto py-8" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-lg mx-4 my-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-semibold">{isEdit ? 'Edit Station' : 'Create Station'}</h2>
+          <h2 className="text-lg font-semibold">{isEdit ? sm.titleEdit : sm.titleCreate}</h2>
           <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100">
             <X className="w-4 h-4" />
           </button>
@@ -101,21 +104,21 @@ function StationModal({ station, onClose, onSave }: StationModalProps) {
 
         <div className="space-y-3">
           <div className="space-y-1">
-            <Label className="text-xs">Station Name *</Label>
+            <Label className="text-xs">{sm.name}</Label>
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Kigali City Center" />
           </div>
           <div className="space-y-1">
-            <Label className="text-xs">Address *</Label>
+            <Label className="text-xs">{sm.address}</Label>
             <Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="KN 5 Ave, Nyarugenge" />
           </div>
           <div className="space-y-1">
-            <Label className="text-xs">Province</Label>
+            <Label className="text-xs">{sm.province}</Label>
             <select
               value={province}
               onChange={(e) => setProvince(e.target.value)}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
             >
-              <option value="">Select province</option>
+              <option value="">{sm.selectProvince}</option>
               {['Kigali', 'Northern', 'Southern', 'Eastern', 'Western'].map((p) => (
                 <option key={p} value={p}>{p}</option>
               ))}
@@ -124,32 +127,32 @@ function StationModal({ station, onClose, onSave }: StationModalProps) {
           {!isEdit && (
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label className="text-xs">Latitude</Label>
+                <Label className="text-xs">{sm.lat}</Label>
                 <Input value={lat} onChange={(e) => setLat(e.target.value)} placeholder="-1.9441" />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Longitude</Label>
+                <Label className="text-xs">{sm.lng}</Label>
                 <Input value={lng} onChange={(e) => setLng(e.target.value)} placeholder="30.0619" />
               </div>
             </div>
           )}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label className="text-xs">Total Slots</Label>
+              <Label className="text-xs">{sm.totalSlots}</Label>
               <Input type="number" min="1" value={totalSlots} onChange={(e) => setTotalSlots(e.target.value)} />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">Low Inventory Alert</Label>
+              <Label className="text-xs">{sm.lowAlert}</Label>
               <Input type="number" min="1" value={lowThreshold} onChange={(e) => setLowThreshold(e.target.value)} />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label className="text-xs">Opening Time</Label>
+              <Label className="text-xs">{sm.openTime}</Label>
               <Input type="time" value={openTime} onChange={(e) => setOpenTime(e.target.value)} />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">Closing Time</Label>
+              <Label className="text-xs">{sm.closeTime}</Label>
               <Input type="time" value={closeTime} onChange={(e) => setCloseTime(e.target.value)} />
             </div>
           </div>
@@ -161,10 +164,10 @@ function StationModal({ station, onClose, onSave }: StationModalProps) {
           )}
 
           <div className="flex gap-2 pt-2">
-            <Button variant="outline" size="sm" onClick={onClose} className="flex-1">Cancel</Button>
+            <Button variant="outline" size="sm" onClick={onClose} className="flex-1">{sm.cancel}</Button>
             <Button size="sm" onClick={handleSave} disabled={saving} className="flex-1">
               {saving && <Loader2 className="w-4 h-4 animate-spin mr-1" />}
-              {isEdit ? 'Save Changes' : 'Create Station'}
+              {isEdit ? sm.saveChanges : sm.createStation}
             </Button>
           </div>
         </div>
@@ -182,13 +185,14 @@ interface AssignStaffModalProps {
 }
 
 function AssignStaffModal({ station, onClose, onSave }: AssignStaffModalProps) {
+  const { t } = useLanguage()
+  const am = t.admin.stations.assignModal
   const [operators, setOperators] = useState<StaffUser[]>([])
   const [technicians, setTechnicians] = useState<StaffUser[]>([])
   const [loadingStaff, setLoadingStaff] = useState(true)
 
-  // Current selections
   const currentOperatorId = station.operatorId?._id ?? ''
-  const currentTechIds: string[] = station.assignedTechnicians?.map((t) => t._id) ?? []
+  const currentTechIds: string[] = station.assignedTechnicians?.map((tech) => tech._id) ?? []
 
   const [selectedOperator, setSelectedOperator] = useState<string>(currentOperatorId)
   const [selectedTechs, setSelectedTechs] = useState<string[]>(currentTechIds)
@@ -217,7 +221,7 @@ function AssignStaffModal({ station, onClose, onSave }: AssignStaffModalProps) {
 
   const toggleTech = (id: string) => {
     setSelectedTechs((prev) =>
-      prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((tid) => tid !== id) : [...prev, id]
     )
   }
 
@@ -243,7 +247,7 @@ function AssignStaffModal({ station, onClose, onSave }: AssignStaffModalProps) {
       <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-lg mx-4 my-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h2 className="text-lg font-semibold">Assign Staff</h2>
+            <h2 className="text-lg font-semibold">{am.title}</h2>
             <p className="text-xs text-gray-500 mt-0.5">{station.name}</p>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100">
@@ -261,15 +265,15 @@ function AssignStaffModal({ station, onClose, onSave }: AssignStaffModalProps) {
             {/* Operator */}
             <div>
               <Label className="text-xs font-medium text-gray-700 block mb-2">
-                Station Operator
-                <span className="text-gray-400 font-normal ml-1">(select one)</span>
+                {am.operatorLabel}
+                <span className="text-gray-400 font-normal ml-1">{am.operatorHint}</span>
               </Label>
               <select
                 value={selectedOperator}
                 onChange={(e) => setSelectedOperator(e.target.value)}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
               >
-                <option value="">— No operator assigned —</option>
+                <option value="">{am.noOperator}</option>
                 {operators.map((op) => (
                   <option key={op._id} value={op._id}>
                     {op.fullName} · {op.phone}
@@ -277,18 +281,18 @@ function AssignStaffModal({ station, onClose, onSave }: AssignStaffModalProps) {
                 ))}
               </select>
               {operators.length === 0 && (
-                <p className="text-xs text-gray-400 mt-1">No operators found. Create an operator account first.</p>
+                <p className="text-xs text-gray-400 mt-1">{am.noOperatorsFound}</p>
               )}
             </div>
 
             {/* Technicians */}
             <div>
               <Label className="text-xs font-medium text-gray-700 block mb-2">
-                Technicians
-                <span className="text-gray-400 font-normal ml-1">(select one or more)</span>
+                {am.techsLabel}
+                <span className="text-gray-400 font-normal ml-1">{am.techsHint}</span>
               </Label>
               {technicians.length === 0 ? (
-                <p className="text-xs text-gray-400">No technicians found. Create a technician account first.</p>
+                <p className="text-xs text-gray-400">{am.noTechsFound}</p>
               ) : (
                 <div className="border border-gray-200 rounded-lg divide-y max-h-56 overflow-y-auto">
                   {technicians.map((tech) => {
@@ -311,7 +315,7 @@ function AssignStaffModal({ station, onClose, onSave }: AssignStaffModalProps) {
                           <p className="text-xs text-gray-500">{tech.phone}</p>
                         </div>
                         {checked && (
-                          <Badge variant="default" className="text-xs shrink-0">Assigned</Badge>
+                          <Badge variant="default" className="text-xs shrink-0">{am.assigned}</Badge>
                         )}
                       </label>
                     )
@@ -320,7 +324,9 @@ function AssignStaffModal({ station, onClose, onSave }: AssignStaffModalProps) {
               )}
               {selectedTechs.length > 0 && (
                 <p className="text-xs text-primary mt-1.5">
-                  {selectedTechs.length} technician{selectedTechs.length !== 1 ? 's' : ''} selected
+                  {selectedTechs.length === 1
+                    ? am.techsSelected.replace('{n}', String(selectedTechs.length))
+                    : am.techsSelectedPlural.replace('{n}', String(selectedTechs.length))}
                 </p>
               )}
             </div>
@@ -332,10 +338,10 @@ function AssignStaffModal({ station, onClose, onSave }: AssignStaffModalProps) {
             )}
 
             <div className="flex gap-2 pt-1">
-              <Button variant="outline" size="sm" onClick={onClose} className="flex-1">Cancel</Button>
+              <Button variant="outline" size="sm" onClick={onClose} className="flex-1">{am.cancel}</Button>
               <Button size="sm" onClick={handleSave} disabled={saving} className="flex-1">
                 {saving && <Loader2 className="w-4 h-4 animate-spin mr-1" />}
-                Save Assignment
+                {am.saveAssignment}
               </Button>
             </div>
           </div>
@@ -350,6 +356,8 @@ function AssignStaffModal({ station, onClose, onSave }: AssignStaffModalProps) {
 const PAGE_SIZE = 20
 
 export function Stations() {
+  const { t } = useLanguage()
+  const s = t.admin.stations
   const [stations, setStations] = useState<StationDetail[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -390,7 +398,7 @@ export function Stations() {
     setStatusChangingId(station._id)
     try {
       await api.put(`/stations/${station._id}/status`, { status: next })
-      setStations((prev) => prev.map((s) => s._id === station._id ? { ...s, status: next } : s))
+      setStations((prev) => prev.map((st) => st._id === station._id ? { ...st, status: next } : st))
     } catch (err: any) {
       setError(err.response?.data?.message ?? 'Failed to update status')
     } finally {
@@ -401,10 +409,10 @@ export function Stations() {
   const totalPages = Math.ceil(total / PAGE_SIZE)
 
   const totals = stations.reduce(
-    (acc, s) => ({
-      active: acc.active + (s.status === 'active' ? 1 : 0),
-      maintenance: acc.maintenance + (s.status === 'maintenance' ? 1 : 0),
-      available: acc.available + (s.availableBatteries || 0),
+    (acc, st) => ({
+      active: acc.active + (st.status === 'active' ? 1 : 0),
+      maintenance: acc.maintenance + (st.status === 'maintenance' ? 1 : 0),
+      available: acc.available + (st.availableBatteries || 0),
     }),
     { active: 0, maintenance: 0, available: 0 }
   )
@@ -416,15 +424,15 @@ export function Stations() {
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Stations</h1>
-            <p className="text-gray-600 mt-1">Manage swap station network</p>
+            <h1 className="text-3xl font-bold text-gray-900">{s.title}</h1>
+            <p className="text-gray-600 mt-1">{s.subtitle}</p>
           </div>
           <div className="flex gap-2">
             <button onClick={() => loadData(page)} className="p-2 rounded-lg text-gray-400 hover:text-primary hover:bg-primary/5 transition-colors">
               <RefreshCw className="w-4 h-4" />
             </button>
             <Button size="sm" onClick={() => setModalStation('new')}>
-              <Plus className="w-4 h-4 mr-1" />Add Station
+              <Plus className="w-4 h-4 mr-1" />{s.addStation}
             </Button>
           </div>
         </div>
@@ -432,7 +440,7 @@ export function Stations() {
         {error && (
           <div className="flex items-center gap-3 p-4 bg-error/5 border border-error/20 rounded-xl text-sm text-error">
             <AlertCircle className="w-4 h-4 shrink-0" /><span>{error}</span>
-            <Button variant="ghost" size="sm" onClick={() => loadData(page)} className="ml-auto text-error">Retry</Button>
+            <Button variant="ghost" size="sm" onClick={() => loadData(page)} className="ml-auto text-error">{s.retry}</Button>
           </div>
         )}
 
@@ -440,19 +448,19 @@ export function Stations() {
         {!isLoading && (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              { label: 'Total Stations', value: total, icon: <MapPin className="w-5 h-5" />, color: 'text-primary' },
-              { label: 'Active', value: totals.active, icon: <Activity className="w-5 h-5" />, color: 'text-success' },
-              { label: 'Maintenance', value: totals.maintenance, icon: <AlertCircle className="w-5 h-5" />, color: 'text-warning' },
-              { label: 'Available Batteries', value: totals.available, icon: <Battery className="w-5 h-5" />, color: 'text-gray-700' },
-            ].map((s) => (
-              <Card key={s.label}>
+              { label: s.statTotal, value: total, icon: <MapPin className="w-5 h-5" />, color: 'text-primary' },
+              { label: s.statActive, value: totals.active, icon: <Activity className="w-5 h-5" />, color: 'text-success' },
+              { label: s.statMaintenance, value: totals.maintenance, icon: <AlertCircle className="w-5 h-5" />, color: 'text-warning' },
+              { label: s.statAvailable, value: totals.available, icon: <Battery className="w-5 h-5" />, color: 'text-gray-700' },
+            ].map((stat) => (
+              <Card key={stat.label}>
                 <CardContent className="pt-5 pb-5">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs text-gray-500">{s.label}</p>
-                      <p className={`text-2xl font-bold mt-1 ${s.color}`}>{s.value}</p>
+                      <p className="text-xs text-gray-500">{stat.label}</p>
+                      <p className={`text-2xl font-bold mt-1 ${stat.color}`}>{stat.value}</p>
                     </div>
-                    <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-500">{s.icon}</div>
+                    <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-500">{stat.icon}</div>
                   </div>
                 </CardContent>
               </Card>
@@ -468,7 +476,7 @@ export function Stations() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <Input
                   className="pl-9"
-                  placeholder="Search by name, address, code…"
+                  placeholder={s.searchPlaceholder}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
@@ -478,10 +486,10 @@ export function Stations() {
                 onChange={(e) => setStatusFilter(e.target.value)}
                 className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
               >
-                <option value="">All Status</option>
-                <option value="active">Active</option>
-                <option value="maintenance">Maintenance</option>
-                <option value="inactive">Inactive</option>
+                <option value="">{s.allStatus}</option>
+                <option value="active">{s.statusActive}</option>
+                <option value="maintenance">{s.statusMaintenance}</option>
+                <option value="inactive">{s.statusInactive}</option>
               </select>
             </div>
           </CardContent>
@@ -491,7 +499,7 @@ export function Stations() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle>
-              Stations
+              {s.cardTitle}
               {!isLoading && <span className="ml-2 text-sm font-normal text-gray-400">({total} total)</span>}
             </CardTitle>
           </CardHeader>
@@ -505,7 +513,7 @@ export function Stations() {
                 <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center">
                   <MapPin className="w-7 h-7 text-gray-400" />
                 </div>
-                <p className="text-sm font-medium text-gray-700">No stations found</p>
+                <p className="text-sm font-medium text-gray-700">{s.emptyTitle}</p>
               </div>
             ) : (
               <>
@@ -513,14 +521,14 @@ export function Stations() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Station</TableHead>
-                        <TableHead>Code</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Batteries</TableHead>
-                        <TableHead>Operator</TableHead>
-                        <TableHead>Technicians</TableHead>
-                        <TableHead>Created</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
+                        <TableHead>{s.colStation}</TableHead>
+                        <TableHead>{s.colCode}</TableHead>
+                        <TableHead>{s.colStatus}</TableHead>
+                        <TableHead>{s.colBatteries}</TableHead>
+                        <TableHead>{s.colOperator}</TableHead>
+                        <TableHead>{s.colTechnicians}</TableHead>
+                        <TableHead>{s.colCreated}</TableHead>
+                        <TableHead className="text-right">{s.colActions}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -556,21 +564,23 @@ export function Stations() {
                             </TableCell>
                             <TableCell className="text-sm text-gray-600">
                               {(station.operatorId as any)?.fullName ?? (
-                                <span className="text-gray-300 italic">Unassigned</span>
+                                <span className="text-gray-300 italic">{s.unassigned}</span>
                               )}
                             </TableCell>
                             <TableCell>
                               {techList.length === 0 ? (
-                                <span className="text-xs text-gray-300 italic">None</span>
+                                <span className="text-xs text-gray-300 italic">{s.noTechs}</span>
                               ) : (
                                 <div className="flex flex-col gap-0.5">
-                                  {techList.slice(0, 2).map((t) => (
-                                    <span key={t._id} className="text-xs text-gray-600">
-                                      {t.fullName}
+                                  {techList.slice(0, 2).map((tech) => (
+                                    <span key={tech._id} className="text-xs text-gray-600">
+                                      {tech.fullName}
                                     </span>
                                   ))}
                                   {techList.length > 2 && (
-                                    <span className="text-xs text-gray-400">+{techList.length - 2} more</span>
+                                    <span className="text-xs text-gray-400">
+                                      {s.moreTechs.replace('{n}', String(techList.length - 2))}
+                                    </span>
                                   )}
                                 </div>
                               )}
@@ -614,7 +624,7 @@ export function Stations() {
 
                 {totalPages > 1 && (
                   <div className="flex items-center justify-between px-6 py-4 border-t">
-                    <span className="text-xs text-gray-500">Page {page} of {totalPages} · {total} stations</span>
+                    <span className="text-xs text-gray-500">{s.page} {page} {s.of} {totalPages} · {total} {s.totalStations}</span>
                     <div className="flex gap-2">
                       <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1 || isLoading}>
                         <ChevronLeft className="w-4 h-4" />

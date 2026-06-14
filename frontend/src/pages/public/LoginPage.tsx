@@ -6,6 +6,7 @@ import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
 import { Lock, Globe, Phone, Home, Eye, EyeOff } from 'lucide-react'
 import { SpiroLogo } from '../../components/ui/SpiroLogo'
+import { useLanguage } from '../../contexts/LanguageContext'
 
 export function LoginPage() {
   const [phone, setPhone] = useState('')
@@ -16,6 +17,8 @@ export function LoginPage() {
   const { login, isAuthenticated, isLoading: authLoading, user } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
+  const { t, lang, toggle } = useLanguage()
+  const l = t.auth.login
 
   // If already authenticated, redirect to user's dashboard (prevents URL bypass)
   if (!authLoading && isAuthenticated && user) {
@@ -35,7 +38,6 @@ export function LoginPage() {
 
     try {
       const loggedInUser = await login(phone, password)
-      // If there was an attempted protected route, redirect back to it
       const from = (location.state as any)?.from?.pathname
       const dashboards: Record<string, string> = {
         rider:      '/rider/dashboard',
@@ -45,7 +47,7 @@ export function LoginPage() {
       }
       navigate(from ?? dashboards[loggedInUser.role] ?? '/')
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Login failed. Please check your credentials.')
+      setError(err.response?.data?.message || l.errorCredentials)
     } finally {
       setIsLoading(false)
     }
@@ -63,14 +65,17 @@ export function LoginPage() {
           <span className="flex items-center justify-center w-8 h-8 rounded-full bg-white/10 group-hover:bg-white/20 transition-colors">
             <Home className="w-4 h-4" />
           </span>
-          <span className="hidden sm:block">Home</span>
+          <span className="hidden sm:block">{l.home}</span>
         </Link>
       </div>
 
       <div className="absolute top-4 right-4">
-        <button className="flex items-center space-x-2 text-white hover:text-accent-500 transition-colors">
+        <button
+          onClick={toggle}
+          className="flex items-center space-x-2 text-white hover:text-accent-500 transition-colors"
+        >
           <Globe className="w-5 h-5" />
-          <span>English</span>
+          <span>{lang === 'en' ? l.langRw : l.langEn}</span>
         </button>
       </div>
 
@@ -82,15 +87,7 @@ export function LoginPage() {
 
         {/* Login Card */}
         <div className="bg-white rounded-2xl shadow-2xl p-8">
-          <div className="text-center mb-8">
-            {/* <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Login
-            </h1> */}
-            {/* <p className="text-gray-600">
-              At Spiro, we are dedicated to enhancing livelihoods through sustainable energy by
-              leading the large-scale electrification of mobility across Africa.
-            </p> */}
-          </div>
+          <div className="text-center mb-8" />
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {error && (
@@ -100,13 +97,13 @@ export function LoginPage() {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number</Label>
+              <Label htmlFor="phone">{l.phoneLabel}</Label>
               <div className="relative">
                 <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <Input
                   id="phone"
                   type="tel"
-                  placeholder="+250 7XX XXX XXX"
+                  placeholder={l.phonePlaceholder}
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   className="pl-10"
@@ -116,13 +113,13 @@ export function LoginPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">{l.passwordLabel}</Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <Input
                   id="password"
                   type={showPassword ? 'text' : 'password'}
-                  placeholder="Enter Password"
+                  placeholder={l.passwordPlaceholder}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="pl-10 pr-10"
@@ -139,14 +136,13 @@ export function LoginPage() {
               </div>
             </div>
 
-
             <div className="flex items-center justify-between text-sm">
               <label className="flex items-center space-x-2">
                 <input type="checkbox" className="rounded border-gray-300 text-primary focus:ring-accent-500" />
-                <span className="text-gray-600">Remember me</span>
+                <span className="text-gray-600">{l.rememberMe}</span>
               </label>
               <Link to="/forgot-password" className="text-primary hover:text-primary-600 font-medium">
-                Forgot Password?
+                {l.forgotPassword}
               </Link>
             </div>
 
@@ -155,24 +151,24 @@ export function LoginPage() {
               className="w-full bg-black hover:bg-gray-900 text-white h-12 text-base font-semibold"
               disabled={isLoading}
             >
-              {isLoading ? 'Logging in...' : 'Login'}
+              {isLoading ? l.loggingIn : l.loginBtn}
             </Button>
 
             <div className="text-center text-sm text-gray-600">
-              Don't have an account?{' '}
+              {l.noAccount}{' '}
               <Link to="/register" className="text-primary hover:text-primary-600 font-medium">
-                Sign up
+                {l.signUp}
               </Link>
             </div>
           </form>
         </div>
 
         <div className="text-center mt-6 text-white text-sm">
-          <Link to="/about" className="hover:text-accent-500 transition-colors">About Us</Link>
+          <Link to="/about" className="hover:text-accent-500 transition-colors">{l.aboutUs}</Link>
           <span className="mx-2">•</span>
-          <Link to="/services" className="hover:text-accent-500 transition-colors">Services</Link>
+          <Link to="/services" className="hover:text-accent-500 transition-colors">{l.services}</Link>
           <span className="mx-2">•</span>
-          <Link to="/contact" className="hover:text-accent-500 transition-colors">Contact Us</Link>
+          <Link to="/contact" className="hover:text-accent-500 transition-colors">{l.contactUs}</Link>
         </div>
       </div>
     </div>

@@ -21,38 +21,41 @@ import {
   CreditCard,
   Car,
 } from 'lucide-react'
+import { useLanguage } from '../../contexts/LanguageContext'
 
 type Role = 'rider' | 'operator' | 'technician'
 
-const ROLES: { value: Role; label: string; desc: string; icon: React.ElementType; color: string; bg: string }[] = [
-  {
-    value: 'rider',
-    label: 'Rider',
-    desc: 'I swap batteries and ride an electric motorcycle',
-    icon: Bike,
-    color: 'text-blue-600',
-    bg: 'bg-blue-50',
-  },
-  {
-    value: 'operator',
-    label: 'Station Operator',
-    desc: 'I manage a battery swap station',
-    icon: Building2,
-    color: 'text-purple-600',
-    bg: 'bg-purple-50',
-  },
-  {
-    value: 'technician',
-    label: 'Technician',
-    desc: 'I maintain and repair batteries',
-    icon: Wrench,
-    color: 'text-orange-600',
-    bg: 'bg-orange-50',
-  },
-]
-
 export function RegisterPage() {
   const navigate = useNavigate()
+  const { t, lang, toggle } = useLanguage()
+  const r = t.auth.register
+
+  const ROLES: { value: Role; label: string; desc: string; icon: React.ElementType; color: string; bg: string }[] = [
+    {
+      value: 'rider',
+      label: r.roleRider,
+      desc: r.roleRiderDesc,
+      icon: Bike,
+      color: 'text-blue-600',
+      bg: 'bg-blue-50',
+    },
+    {
+      value: 'operator',
+      label: r.roleOperator,
+      desc: r.roleOperatorDesc,
+      icon: Building2,
+      color: 'text-purple-600',
+      bg: 'bg-purple-50',
+    },
+    {
+      value: 'technician',
+      label: r.roleTechnician,
+      desc: r.roleTechnicianDesc,
+      icon: Wrench,
+      color: 'text-orange-600',
+      bg: 'bg-orange-50',
+    },
+  ]
 
   const [step, setStep] = useState<1 | 2>(1)
   const [role, setRole] = useState<Role | ''>('')
@@ -64,7 +67,6 @@ export function RegisterPage() {
     password: '',
     confirmPassword: '',
     language: 'en',
-    // rider-specific fields
     vehicleRegistration: '',
     motorcycleModel: '',
   })
@@ -92,10 +94,10 @@ export function RegisterPage() {
     e.preventDefault()
     setError('')
 
-    if (!role) { setError('Please select your role'); return }
-    if (!nidValid) { setError('National ID must be exactly 16 digits'); return }
-    if (form.password !== form.confirmPassword) { setError('Passwords do not match'); return }
-    if (passwordStrength < 3) { setError('Please use a stronger password'); return }
+    if (!role) { setError(r.errNoRole); return }
+    if (!nidValid) { setError(r.errNid); return }
+    if (form.password !== form.confirmPassword) { setError(r.errPasswordMatch); return }
+    if (passwordStrength < 3) { setError(r.errPasswordStrength); return }
 
     setIsLoading(true)
     try {
@@ -109,7 +111,6 @@ export function RegisterPage() {
         language: form.language,
       }
 
-      // Rider-specific fields
       if (role === 'rider') {
         payload.vehicleRegistration = form.vehicleRegistration
         payload.motorcycleModel = form.motorcycleModel
@@ -138,13 +139,17 @@ export function RegisterPage() {
           <span className="flex items-center justify-center w-8 h-8 rounded-full bg-white/10 group-hover:bg-white/20 transition-colors">
             <ArrowLeft className="w-4 h-4" />
           </span>
-          <span className="hidden sm:block">Back</span>
+          <span className="hidden sm:block">{r.back}</span>
         </button>
       </div>
 
       <div className="absolute top-4 right-4">
-        <button className="flex items-center gap-2 text-white/80 hover:text-white transition-colors text-sm">
-          <Globe className="w-4 h-4" /> English
+        <button
+          onClick={toggle}
+          className="flex items-center gap-2 text-white/80 hover:text-white transition-colors text-sm"
+        >
+          <Globe className="w-4 h-4" />
+          {lang === 'en' ? r.langRw : r.langEn}
         </button>
       </div>
 
@@ -161,7 +166,7 @@ export function RegisterPage() {
                 {step > s ? <CheckCircle2 className="w-4 h-4" /> : s}
               </div>
               <span className={`text-sm ${step >= s ? 'text-white' : 'text-white/50'}`}>
-                {s === 1 ? 'Choose Role' : 'Your Details'}
+                {s === 1 ? r.stepChooseRole : r.stepYourDetails}
               </span>
               {s < 2 && <div className={`w-8 h-0.5 ${step > s ? 'bg-accent-500' : 'bg-white/20'}`} />}
             </div>
@@ -171,12 +176,10 @@ export function RegisterPage() {
         <div className="bg-white rounded-2xl shadow-2xl p-8">
           <div className="text-center mb-8">
             <h1 className="text-2xl font-bold text-gray-900">
-              {step === 1 ? 'Who are you?' : 'Create Your Account'}
+              {step === 1 ? r.step1Title : r.step2Title}
             </h1>
             <p className="text-gray-500 text-sm mt-1">
-              {step === 1
-                ? 'Select your role to get started with Spiro'
-                : 'Fill in your details to join the platform'}
+              {step === 1 ? r.step1Subtitle : r.step2Subtitle}
             </p>
           </div>
 
@@ -189,30 +192,30 @@ export function RegisterPage() {
           {/* ── Step 1: Role Selection ── */}
           {step === 1 && (
             <div className="space-y-3">
-              {ROLES.map((r) => (
+              {ROLES.map((ro) => (
                 <button
-                  key={r.value}
+                  key={ro.value}
                   type="button"
-                  onClick={() => setRole(r.value)}
+                  onClick={() => setRole(ro.value)}
                   className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 text-left transition-all ${
-                    role === r.value
+                    role === ro.value
                       ? 'border-primary bg-primary/5'
                       : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                   }`}
                 >
-                  <div className={`w-12 h-12 ${r.bg} rounded-xl flex items-center justify-center shrink-0`}>
-                    <r.icon className={`w-6 h-6 ${r.color}`} />
+                  <div className={`w-12 h-12 ${ro.bg} rounded-xl flex items-center justify-center shrink-0`}>
+                    <ro.icon className={`w-6 h-6 ${ro.color}`} />
                   </div>
                   <div className="flex-1">
-                    <div className="font-semibold text-gray-900">{r.label}</div>
-                    <div className="text-sm text-gray-500">{r.desc}</div>
+                    <div className="font-semibold text-gray-900">{ro.label}</div>
+                    <div className="text-sm text-gray-500">{ro.desc}</div>
                   </div>
                   <div
                     className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                      role === r.value ? 'border-primary bg-primary' : 'border-gray-300'
+                      role === ro.value ? 'border-primary bg-primary' : 'border-gray-300'
                     }`}
                   >
-                    {role === r.value && <div className="w-2 h-2 bg-white rounded-full" />}
+                    {role === ro.value && <div className="w-2 h-2 bg-white rounded-full" />}
                   </div>
                 </button>
               ))}
@@ -220,19 +223,19 @@ export function RegisterPage() {
               <Button
                 type="button"
                 onClick={() => {
-                  if (!role) { setError('Please select your role'); return }
+                  if (!role) { setError(r.errNoRole); return }
                   setError('')
                   setStep(2)
                 }}
                 className="w-full bg-black hover:bg-gray-900 text-white h-12 text-base font-semibold mt-4"
               >
-                Continue <ArrowRight className="ml-2 w-5 h-5" />
+                {r.continueBtn} <ArrowRight className="ml-2 w-5 h-5" />
               </Button>
 
               <p className="text-center text-sm text-gray-600 pt-2">
-                Already have an account?{' '}
+                {r.alreadyAccount}{' '}
                 <Link to="/login" className="text-primary hover:text-primary-600 font-medium">
-                  Log in
+                  {r.logIn}
                 </Link>
               </p>
             </div>
@@ -244,19 +247,21 @@ export function RegisterPage() {
               {/* Selected role badge */}
               <div className="flex items-center gap-2 p-3 bg-primary/5 rounded-lg border border-primary/20">
                 {(() => {
-                  const r = ROLES.find((r) => r.value === role)!
+                  const ro = ROLES.find((x) => x.value === role)!
                   return (
                     <>
-                      <div className={`w-8 h-8 ${r.bg} rounded-lg flex items-center justify-center`}>
-                        <r.icon className={`w-4 h-4 ${r.color}`} />
+                      <div className={`w-8 h-8 ${ro.bg} rounded-lg flex items-center justify-center`}>
+                        <ro.icon className={`w-4 h-4 ${ro.color}`} />
                       </div>
-                      <span className="text-sm font-medium text-gray-700">Registering as: <strong>{r.label}</strong></span>
+                      <span className="text-sm font-medium text-gray-700">
+                        {r.registeringAs} <strong>{ro.label}</strong>
+                      </span>
                       <button
                         type="button"
                         onClick={() => setStep(1)}
                         className="ml-auto text-xs text-primary hover:underline"
                       >
-                        Change
+                        {r.change}
                       </button>
                     </>
                   )
@@ -265,7 +270,7 @@ export function RegisterPage() {
 
               {/* Full Name */}
               <div className="space-y-1">
-                <Label htmlFor="fullName">Full Name</Label>
+                <Label htmlFor="fullName">{r.fullName}</Label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <Input id="fullName" type="text" placeholder="Jean Pierre Nkurunziza"
@@ -275,7 +280,7 @@ export function RegisterPage() {
 
               {/* Phone */}
               <div className="space-y-1">
-                <Label htmlFor="phone">Phone Number</Label>
+                <Label htmlFor="phone">{r.phone}</Label>
                 <div className="relative">
                   <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <Input id="phone" type="tel" placeholder="+250 7XX XXX XXX"
@@ -285,7 +290,7 @@ export function RegisterPage() {
 
               {/* Email */}
               <div className="space-y-1">
-                <Label htmlFor="email">Email Address</Label>
+                <Label htmlFor="email">{r.email}</Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <Input id="email" type="email" placeholder="you@example.com"
@@ -295,16 +300,15 @@ export function RegisterPage() {
 
               {/* National ID Number */}
               <div className="space-y-1">
-                <Label htmlFor="nid">National ID Number (NID)</Label>
+                <Label htmlFor="nid">{r.nid}</Label>
                 <div className="relative">
                   <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <Input
                     id="nid"
                     type="text"
-                    placeholder="16-digit national identification number"
+                    placeholder={r.nidPlaceholder}
                     value={form.nid}
                     onChange={(e) => {
-                      // Only allow digits, max 16
                       const val = e.target.value.replace(/\D/g, '').slice(0, 16)
                       setForm((f) => ({ ...f, nid: val }))
                     }}
@@ -316,7 +320,7 @@ export function RegisterPage() {
                 </div>
                 {form.nid && (
                   <p className={`text-xs mt-1 ${nidValid ? 'text-green-600' : 'text-red-500'}`}>
-                    {nidValid ? '✓ Valid NID format' : `${form.nid.length}/16 digits entered`}
+                    {nidValid ? r.nidValid : r.nidProgress.replace('{n}', String(form.nid.length))}
                   </p>
                 )}
               </div>
@@ -326,18 +330,18 @@ export function RegisterPage() {
                 <div className="space-y-4 pt-2 pb-1">
                   <div className="flex items-center gap-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     <Bike className="w-3.5 h-3.5" />
-                    <span>Motorcycle Details</span>
+                    <span>{r.motorcycleDetails}</span>
                     <div className="flex-1 h-px bg-gray-200" />
                   </div>
                   {/* Motorcycle Model */}
                   <div className="space-y-1">
-                    <Label htmlFor="motorcycleModel">Motorcycle Model</Label>
+                    <Label htmlFor="motorcycleModel">{r.motorcycleModel}</Label>
                     <div className="relative">
                       <Bike className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                       <Input
                         id="motorcycleModel"
                         type="text"
-                        placeholder="e.g. Spiro Electric"
+                        placeholder={r.motorcycleModelPlaceholder}
                         value={form.motorcycleModel}
                         onChange={set('motorcycleModel')}
                         className="pl-10"
@@ -346,13 +350,13 @@ export function RegisterPage() {
                   </div>
                   {/* Vehicle Registration */}
                   <div className="space-y-1">
-                    <Label htmlFor="vehicleRegistration">Vehicle Registration Number</Label>
+                    <Label htmlFor="vehicleRegistration">{r.vehicleReg}</Label>
                     <div className="relative">
                       <Car className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                       <Input
                         id="vehicleRegistration"
                         type="text"
-                        placeholder="e.g. RAD 123 A"
+                        placeholder={r.vehicleRegPlaceholder}
                         value={form.vehicleRegistration}
                         onChange={set('vehicleRegistration')}
                         className="pl-10"
@@ -364,11 +368,11 @@ export function RegisterPage() {
 
               {/* Password */}
               <div className="space-y-1">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password">{r.password}</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <Input id="password" type={showPassword ? 'text' : 'password'}
-                    placeholder="Min 8 chars, uppercase, number, symbol"
+                    placeholder={r.passwordPlaceholder}
                     value={form.password} onChange={set('password')} className="pl-10 pr-10" required />
                   <button type="button" onClick={() => setShowPassword((v) => !v)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
@@ -387,10 +391,10 @@ export function RegisterPage() {
                       ))}
                     </div>
                     <div className="flex gap-4 text-xs text-gray-500">
-                      <span className={passwordChecks.length ? 'text-green-600' : ''}>✓ 8+ chars</span>
-                      <span className={passwordChecks.upper ? 'text-green-600' : ''}>✓ Uppercase</span>
-                      <span className={passwordChecks.number ? 'text-green-600' : ''}>✓ Number</span>
-                      <span className={passwordChecks.special ? 'text-green-600' : ''}>✓ Symbol</span>
+                      <span className={passwordChecks.length ? 'text-green-600' : ''}>{r.checkLength}</span>
+                      <span className={passwordChecks.upper ? 'text-green-600' : ''}>{r.checkUpper}</span>
+                      <span className={passwordChecks.number ? 'text-green-600' : ''}>{r.checkNumber}</span>
+                      <span className={passwordChecks.special ? 'text-green-600' : ''}>{r.checkSpecial}</span>
                     </div>
                   </div>
                 )}
@@ -398,11 +402,11 @@ export function RegisterPage() {
 
               {/* Confirm Password */}
               <div className="space-y-1">
-                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                <Label htmlFor="confirmPassword">{r.confirmPassword}</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <Input id="confirmPassword" type={showConfirm ? 'text' : 'password'}
-                    placeholder="Repeat your password"
+                    placeholder={r.confirmPasswordPlaceholder}
                     value={form.confirmPassword} onChange={set('confirmPassword')}
                     className={`pl-10 pr-10 ${form.confirmPassword && form.password !== form.confirmPassword ? 'border-red-300' : ''}`}
                     required />
@@ -412,19 +416,19 @@ export function RegisterPage() {
                   </button>
                 </div>
                 {form.confirmPassword && form.password !== form.confirmPassword && (
-                  <p className="text-xs text-red-500">Passwords do not match</p>
+                  <p className="text-xs text-red-500">{r.passwordsNoMatch}</p>
                 )}
               </div>
 
               <Button type="submit"
                 className="w-full bg-black hover:bg-gray-900 text-white h-12 text-base font-semibold"
                 disabled={isLoading}>
-                {isLoading ? 'Creating Account…' : 'Create Account'}
+                {isLoading ? r.creatingAccount : r.createAccount}
               </Button>
 
               <p className="text-center text-sm text-gray-600">
-                Already have an account?{' '}
-                <Link to="/login" className="text-primary hover:text-primary-600 font-medium">Log in</Link>
+                {r.alreadyAccount}{' '}
+                <Link to="/login" className="text-primary hover:text-primary-600 font-medium">{r.logIn}</Link>
               </p>
             </form>
           )}

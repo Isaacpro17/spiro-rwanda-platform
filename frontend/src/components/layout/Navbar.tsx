@@ -3,9 +3,11 @@ import { Menu, X, Globe } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '../ui/button'
 import { SpiroLogo } from '../ui/SpiroLogo'
+import { useLanguage } from '../../contexts/LanguageContext'
 
 export function Navbar() {
   const [isOpen, setIsOpen] = useState(false)
+  const { t, toggle } = useLanguage()
 
   return (
     <nav className="bg-white border-b border-gray-200 sticky top-0 z-50">
@@ -20,24 +22,28 @@ export function Navbar() {
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
             <Link to="/" className="text-gray-700 hover:text-primary transition-colors">
-              Home
+              {t.nav.home}
             </Link>
             <Link to="/about" className="text-gray-700 hover:text-primary transition-colors">
-              About Us
+              {t.nav.about}
             </Link>
             <Link to="/services" className="text-gray-700 hover:text-primary transition-colors">
-              Services
+              {t.nav.services}
             </Link>
             <Link to="/contact" className="text-gray-700 hover:text-primary transition-colors">
-              Contact Us
+              {t.nav.contact}
             </Link>
-            <button className="flex items-center space-x-1 text-gray-700 hover:text-primary transition-colors">
+            <button
+              onClick={toggle}
+              className="flex items-center gap-1.5 text-gray-700 hover:text-primary transition-colors text-sm font-medium"
+              aria-label="Switch language"
+            >
               <Globe className="w-4 h-4" />
-              <span>English</span>
+              <span>{t.nav.switchTo}</span>
             </button>
             <Link to="/login">
               <Button variant="accent" className="font-semibold">
-                Login
+                {t.nav.login}
               </Button>
             </Link>
           </div>
@@ -63,36 +69,43 @@ export function Navbar() {
               className="block px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-md"
               onClick={() => setIsOpen(false)}
             >
-              Home
+              {t.nav.home}
             </Link>
             <Link
               to="/about"
               className="block px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-md"
               onClick={() => setIsOpen(false)}
             >
-              About Us
+              {t.nav.about}
             </Link>
             <Link
               to="/services"
               className="block px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-md"
               onClick={() => setIsOpen(false)}
             >
-              Services
+              {t.nav.services}
             </Link>
             <Link
               to="/contact"
               className="block px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-md"
               onClick={() => setIsOpen(false)}
             >
-              Contact Us
+              {t.nav.contact}
             </Link>
+            <button
+              onClick={() => { toggle(); setIsOpen(false) }}
+              className="flex items-center gap-1.5 px-3 py-2 w-full text-left text-gray-700 hover:bg-gray-100 rounded-md text-sm font-medium"
+            >
+              <Globe className="w-4 h-4" />
+              <span>{t.nav.switchTo}</span>
+            </button>
             <Link
               to="/login"
               className="block px-3 py-2"
               onClick={() => setIsOpen(false)}
             >
               <Button variant="accent" className="w-full">
-                Login
+                {t.nav.login}
               </Button>
             </Link>
           </div>

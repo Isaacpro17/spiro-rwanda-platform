@@ -12,6 +12,7 @@ import {
   ChevronLeft, ChevronRight, Filter, X,
 } from 'lucide-react'
 import { api } from '../../lib/api'
+import { useLanguage } from '../../contexts/LanguageContext'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -71,6 +72,15 @@ function RowSkeleton() {
 // ── Page Component ─────────────────────────────────────────────────────────────
 
 export function SwapHistory() {
+  const { t } = useLanguage()
+  const h = t.rider.history
+
+  const swapLabel = (status: string) =>
+    status === 'completed' ? h.statusCompleted
+    : status === 'in_progress' ? h.statusInProgress
+    : status === 'cancelled' ? h.statusCancelled
+    : status
+
   const [rows, setRows]           = useState<SwapHistoryRow[]>([])
   const [isLoading, setLoading]   = useState(true)
   const [error, setError]         = useState<string | null>(null)
@@ -149,8 +159,8 @@ export function SwapHistory() {
         {/* Page header */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Swap History</h1>
-            <p className="text-gray-600 mt-1">View and filter your past battery swaps</p>
+            <h1 className="text-3xl font-bold text-gray-900">{h.title}</h1>
+            <p className="text-gray-600 mt-1">{h.subtitle}</p>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -182,20 +192,20 @@ export function SwapHistory() {
             <CardContent className="pt-4 pb-4">
               <div className="grid sm:grid-cols-3 gap-4">
                 <div className="space-y-1.5">
-                  <Label htmlFor="filter-status" className="text-xs">Status</Label>
+                  <Label htmlFor="filter-status" className="text-xs">{h.filterStatus}</Label>
                   <Select
                     id="filter-status"
                     value={filters.status}
                     onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}
                   >
-                    <option value="">All statuses</option>
-                    <option value="completed">Completed</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="cancelled">Cancelled</option>
+                    <option value="">{h.allStatuses}</option>
+                    <option value="completed">{h.statusCompleted}</option>
+                    <option value="in_progress">{h.statusInProgress}</option>
+                    <option value="cancelled">{h.statusCancelled}</option>
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="filter-start" className="text-xs">From Date</Label>
+                  <Label htmlFor="filter-start" className="text-xs">{h.filterFromDate}</Label>
                   <Input
                     id="filter-start"
                     type="date"
@@ -204,7 +214,7 @@ export function SwapHistory() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="filter-end" className="text-xs">To Date</Label>
+                  <Label htmlFor="filter-end" className="text-xs">{h.filterToDate}</Label>
                   <Input
                     id="filter-end"
                     type="date"
@@ -214,10 +224,10 @@ export function SwapHistory() {
                 </div>
               </div>
               <div className="flex gap-2 mt-4">
-                <Button size="sm" onClick={applyFilters}>Apply Filters</Button>
+                <Button size="sm" onClick={applyFilters}>{h.applyFilters}</Button>
                 {hasActiveFilters && (
                   <Button size="sm" variant="outline" onClick={clearFilters}>
-                    <X className="w-3.5 h-3.5 mr-1" /> Clear
+                    <X className="w-3.5 h-3.5 mr-1" /> {h.clear}
                   </Button>
                 )}
               </div>
@@ -231,17 +241,19 @@ export function SwapHistory() {
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{error}</span>
             <Button variant="ghost" size="sm" onClick={() => load(page, appliedFilters)} className="ml-auto text-error">
-              Retry
+              {h.retry}
             </Button>
           </div>
         )}
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-3">
-            <CardTitle>Swap Records</CardTitle>
+            <CardTitle>{h.swapRecords}</CardTitle>
             {!isLoading && rows.length > 0 && (
               <span className="text-xs text-gray-400 font-normal">
-                {rows.length} result{rows.length !== 1 ? 's' : ''}
+                {rows.length !== 1
+                  ? h.results.replace('{n}', String(rows.length))
+                  : h.result.replace('{n}', String(rows.length))}
               </span>
             )}
           </CardHeader>
@@ -253,8 +265,8 @@ export function SwapHistory() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      {['Date','Station','Battery Out','Battery In','Duration','Cost','Status',''].map((h, i) => (
-                        <TableHead key={i}>{h}</TableHead>
+                      {[h.colDate, h.colStation, h.colBatteryOut, h.colBatteryIn, h.colDuration, h.colCost, h.colStatus, ''].map((col, i) => (
+                        <TableHead key={i}>{col}</TableHead>
                       ))}
                     </TableRow>
                   </TableHeader>
@@ -271,16 +283,14 @@ export function SwapHistory() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-700">
-                    {hasActiveFilters ? 'No swaps match these filters' : 'No swaps yet'}
+                    {hasActiveFilters ? h.noMatchFilters : h.noSwapsYet}
                   </p>
                   <p className="text-xs text-gray-500 mt-1">
-                    {hasActiveFilters
-                      ? 'Try adjusting your filters'
-                      : 'Your completed battery swaps will appear here'}
+                    {hasActiveFilters ? h.tryAdjusting : h.noSwapsDesc}
                   </p>
                 </div>
                 {hasActiveFilters && (
-                  <Button variant="outline" size="sm" onClick={clearFilters}>Clear Filters</Button>
+                  <Button variant="outline" size="sm" onClick={clearFilters}>{h.clearFilters}</Button>
                 )}
               </div>
             )}
@@ -291,13 +301,13 @@ export function SwapHistory() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="whitespace-nowrap">Date</TableHead>
-                      <TableHead className="whitespace-nowrap">Station</TableHead>
-                      <TableHead className="whitespace-nowrap">Battery Out</TableHead>
-                      <TableHead className="whitespace-nowrap">Battery In</TableHead>
-                      <TableHead className="whitespace-nowrap">Duration</TableHead>
-                      <TableHead className="whitespace-nowrap">Cost</TableHead>
-                      <TableHead className="whitespace-nowrap">Status</TableHead>
+                      <TableHead className="whitespace-nowrap">{h.colDate}</TableHead>
+                      <TableHead className="whitespace-nowrap">{h.colStation}</TableHead>
+                      <TableHead className="whitespace-nowrap">{h.colBatteryOut}</TableHead>
+                      <TableHead className="whitespace-nowrap">{h.colBatteryIn}</TableHead>
+                      <TableHead className="whitespace-nowrap">{h.colDuration}</TableHead>
+                      <TableHead className="whitespace-nowrap">{h.colCost}</TableHead>
+                      <TableHead className="whitespace-nowrap">{h.colStatus}</TableHead>
                       <TableHead className="w-10" />
                     </TableRow>
                   </TableHeader>
@@ -312,7 +322,7 @@ export function SwapHistory() {
                         <TableCell className="text-gray-700 text-sm font-medium whitespace-nowrap">{row.cost}</TableCell>
                         <TableCell>
                           <Badge variant={statusVariant(row.status)} className="text-xs whitespace-nowrap">
-                            {row.statusLabel}
+                            {swapLabel(row.status)}
                           </Badge>
                         </TableCell>
                         <TableCell>
@@ -342,7 +352,7 @@ export function SwapHistory() {
             {/* Pagination */}
             {!isLoading && !error && (rows.length === PAGE_SIZE || page > 1) && (
               <div className="flex items-center justify-between px-6 pt-4 pb-4 border-t">
-                <span className="text-xs text-gray-500">Page {page}</span>
+                <span className="text-xs text-gray-500">{h.page} {page}</span>
                 <div className="flex gap-2">
                   <Button
                     variant="outline"

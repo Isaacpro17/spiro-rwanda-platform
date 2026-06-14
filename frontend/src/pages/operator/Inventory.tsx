@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../contexts/AuthContext'
+import { useLanguage } from '../../contexts/LanguageContext'
 import type { StationDetail, BatteryData } from '../../types'
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -24,13 +25,17 @@ function statusVariant(status: string) {
   return 'destructive'
 }
 
-function statusLabel(status: string) {
-  if (status === 'available') return 'Available'
-  if (status === 'charging') return 'Charging'
-  if (status === 'in_use') return 'In Use'
-  if (status === 'faulty') return 'Faulty'
-  if (status === 'repair') return 'Repair'
-  return status
+function useStatusLabel() {
+  const { t } = useLanguage()
+  const inv = t.operator.inventory
+  return (status: string) => {
+    if (status === 'available') return inv.statusAvailable
+    if (status === 'charging') return inv.statusCharging
+    if (status === 'in_use') return inv.statusInUse
+    if (status === 'faulty') return inv.statusFaulty
+    if (status === 'repair') return inv.statusRepair
+    return status
+  }
 }
 
 // ── Repair Modal ──────────────────────────────────────────────────────────────
@@ -41,22 +46,23 @@ interface RepairModalProps {
   onSubmit: (batteryId: string, issueType: string, description: string) => Promise<void>
 }
 
-const ISSUE_TYPES = [
-  { value: 'low_performance', label: 'Low Performance' },
-  { value: 'not_charging',    label: 'Not Charging' },
-  { value: 'physical_damage', label: 'Physical Damage' },
-  { value: 'faulty',          label: 'Faulty / Dead' },
-  { value: 'other',           label: 'Other' },
-]
-
 function RepairModal({ battery, onClose, onSubmit }: RepairModalProps) {
+  const { t } = useLanguage()
+  const m = t.operator.inventory.repairModal
+  const ISSUE_TYPES = [
+    { value: 'low_performance', label: m.lowPerf },
+    { value: 'not_charging',    label: m.notCharging },
+    { value: 'physical_damage', label: m.physicalDamage },
+    { value: 'faulty',          label: m.faultyDead },
+    { value: 'other',           label: m.other },
+  ]
   const [issueType, setIssueType] = useState('other')
   const [description, setDescription] = useState('')
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
 
   const handleSubmit = async () => {
-    if (!description.trim()) { setErr('Please describe the issue'); return }
+    if (!description.trim()) { setErr(m.pleaseDescribe); return }
     setSaving(true)
     setErr('')
     try {
@@ -73,16 +79,16 @@ function RepairModal({ battery, onClose, onSubmit }: RepairModalProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">Request Repair</h2>
+          <h2 className="text-lg font-semibold">{m.title}</h2>
           <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100">
             <X className="w-4 h-4" />
           </button>
         </div>
         <p className="text-sm text-gray-600 mb-4">
-          Battery: <span className="font-mono font-medium">{battery.serialNumber}</span>
+          {m.batteryLabel} <span className="font-mono font-medium">{battery.serialNumber}</span>
         </p>
         <div className="space-y-1.5 mb-3">
-          <Label htmlFor="repair-type" className="text-xs">Issue Type</Label>
+          <Label htmlFor="repair-type" className="text-xs">{m.issueType}</Label>
           <Select
             id="repair-type"
             value={issueType}
@@ -94,22 +100,22 @@ function RepairModal({ battery, onClose, onSubmit }: RepairModalProps) {
           </Select>
         </div>
         <div className="space-y-1.5 mb-4">
-          <Label htmlFor="repair-desc" className="text-xs">Issue Description</Label>
+          <Label htmlFor="repair-desc" className="text-xs">{m.issueDesc}</Label>
           <textarea
             id="repair-desc"
             rows={3}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Describe the fault or issue..."
+            placeholder={m.placeholder}
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
           />
         </div>
         {err && <p className="text-xs text-error mb-3">{err}</p>}
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={onClose} className="flex-1">Cancel</Button>
+          <Button variant="outline" size="sm" onClick={onClose} className="flex-1">{m.cancel}</Button>
           <Button size="sm" onClick={handleSubmit} disabled={saving} className="flex-1">
             {saving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Wrench className="w-4 h-4 mr-1" />}
-            Submit Request
+            {m.submit}
           </Button>
         </div>
       </div>
@@ -125,6 +131,8 @@ interface InventoryUpdateCardProps {
 }
 
 function InventoryUpdateCard({ station, onUpdate }: InventoryUpdateCardProps) {
+  const { t } = useLanguage()
+  const inv = t.operator.inventory
   const [available, setAvailable] = useState(String(station.availableBatteries))
   const [charging, setCharging] = useState(String(station.chargingBatteries))
   const [saving, setSaving] = useState(false)
@@ -145,12 +153,12 @@ function InventoryUpdateCard({ station, onUpdate }: InventoryUpdateCardProps) {
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-base">Update Inventory Counts</CardTitle>
+        <CardTitle className="text-base">{inv.updateTitle}</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="flex flex-wrap items-end gap-3">
           <div className="space-y-1">
-            <Label className="text-xs">Available Batteries</Label>
+            <Label className="text-xs">{inv.updateAvailable}</Label>
             <Input
               type="number"
               min={0}
@@ -160,7 +168,7 @@ function InventoryUpdateCard({ station, onUpdate }: InventoryUpdateCardProps) {
             />
           </div>
           <div className="space-y-1">
-            <Label className="text-xs">Charging Batteries</Label>
+            <Label className="text-xs">{inv.updateCharging}</Label>
             <Input
               type="number"
               min={0}
@@ -171,7 +179,7 @@ function InventoryUpdateCard({ station, onUpdate }: InventoryUpdateCardProps) {
           </div>
           <Button size="sm" onClick={handleSave} disabled={saving}>
             {saving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
-            {success ? 'Saved!' : 'Update'}
+            {success ? inv.saved : inv.update}
           </Button>
         </div>
       </CardContent>
@@ -185,6 +193,9 @@ const PAGE_SIZE = 15
 
 export function Inventory() {
   const { user } = useAuth()
+  const { t } = useLanguage()
+  const inv = t.operator.inventory
+  const getStatusLabel = useStatusLabel()
   const [station, setStation] = useState<StationDetail | null>(null)
   const [batteries, setBatteries] = useState<BatteryData[]>([])
   const [total, setTotal] = useState(0)
@@ -277,9 +288,9 @@ export function Inventory() {
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Battery Inventory</h1>
+            <h1 className="text-3xl font-bold text-gray-900">{inv.title}</h1>
             <p className="text-gray-600 mt-1">
-              {station ? `${station.name} — manage battery stock` : 'Manage station battery stock'}
+              {station ? `${station.name} — ${inv.subtitleStation}` : inv.subtitle}
             </p>
           </div>
           <button
@@ -296,7 +307,7 @@ export function Inventory() {
           <div className="flex items-center gap-3 p-4 bg-error/5 border border-error/20 rounded-xl text-sm text-error">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{error}</span>
-            <Button variant="ghost" size="sm" onClick={initialLoad} className="ml-auto text-error">Retry</Button>
+            <Button variant="ghost" size="sm" onClick={initialLoad} className="ml-auto text-error">{inv.retry}</Button>
           </div>
         )}
 
@@ -304,10 +315,10 @@ export function Inventory() {
         {!isLoading && !error && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {[
-              { label: 'Total Batteries', value: total, color: 'text-gray-900' },
-              { label: 'Available', value: station?.availableBatteries ?? counts.available, color: 'text-success' },
-              { label: 'Charging', value: station?.chargingBatteries ?? counts.charging, color: 'text-warning' },
-              { label: 'Faulty/Repair', value: counts.faulty, color: 'text-error' },
+              { label: inv.statTotal, value: total, color: 'text-gray-900' },
+              { label: inv.statAvailable, value: station?.availableBatteries ?? counts.available, color: 'text-success' },
+              { label: inv.statCharging, value: station?.chargingBatteries ?? counts.charging, color: 'text-warning' },
+              { label: inv.statFaulty, value: counts.faulty, color: 'text-error' },
             ].map(({ label, value, color }) => (
               <Card key={label}>
                 <CardContent className="pt-4 pb-4">
@@ -327,18 +338,18 @@ export function Inventory() {
         {/* Filter + table */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-3">
-            <CardTitle>Battery List</CardTitle>
+            <CardTitle>{inv.batteryList}</CardTitle>
             <Select
               value={statusFilter}
               onChange={(e) => { setStatusFilter(e.target.value); setPage(1) }}
               className="w-40 text-sm"
             >
-              <option value="">All statuses</option>
-              <option value="available">Available</option>
-              <option value="charging">Charging</option>
-              <option value="in_use">In Use</option>
-              <option value="faulty">Faulty</option>
-              <option value="repair">Repair</option>
+              <option value="">{inv.allStatuses}</option>
+              <option value="available">{inv.statusAvailable}</option>
+              <option value="charging">{inv.statusCharging}</option>
+              <option value="in_use">{inv.statusInUse}</option>
+              <option value="faulty">{inv.statusFaulty}</option>
+              <option value="repair">{inv.statusRepair}</option>
             </Select>
           </CardHeader>
           <CardContent className="p-0">
@@ -352,9 +363,9 @@ export function Inventory() {
                 <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center">
                   <Battery className="w-7 h-7 text-gray-400" />
                 </div>
-                <p className="text-sm font-medium text-gray-700">No batteries found</p>
+                <p className="text-sm font-medium text-gray-700">{inv.noBatteries}</p>
                 <p className="text-xs text-gray-500">
-                  {statusFilter ? 'Try a different filter' : 'No batteries are assigned to this station'}
+                  {statusFilter ? inv.tryFilter : inv.noAssigned}
                 </p>
               </div>
             ) : (
@@ -363,12 +374,12 @@ export function Inventory() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Serial Number</TableHead>
-                        <TableHead>Charge</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Repairs</TableHead>
-                        <TableHead>Last Swap</TableHead>
-                        <TableHead className="w-32">Actions</TableHead>
+                        <TableHead>{inv.colSerial}</TableHead>
+                        <TableHead>{inv.colCharge}</TableHead>
+                        <TableHead>{inv.colStatus}</TableHead>
+                        <TableHead>{inv.colRepairs}</TableHead>
+                        <TableHead>{inv.colLastSwap}</TableHead>
+                        <TableHead className="w-32">{inv.colActions}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -388,7 +399,7 @@ export function Inventory() {
                           </TableCell>
                           <TableCell>
                             <Badge variant={statusVariant(battery.status)} className="text-xs">
-                              {statusLabel(battery.status)}
+                              {getStatusLabel(battery.status)}
                             </Badge>
                           </TableCell>
                           <TableCell className="text-sm text-gray-600">{battery.repairCount}</TableCell>
@@ -409,7 +420,7 @@ export function Inventory() {
                                   {actionLoading === battery._id
                                     ? <Loader2 className="w-3 h-3 animate-spin" />
                                     : <AlertTriangle className="w-3 h-3" />}
-                                  Faulty
+                                  {inv.markFaulty}
                                 </button>
                               )}
                               {battery.status !== 'repair' && (
@@ -419,7 +430,7 @@ export function Inventory() {
                                   title="Request repair"
                                 >
                                   <Wrench className="w-3 h-3" />
-                                  Repair
+                                  {inv.requestRepair}
                                 </button>
                               )}
                             </div>
@@ -433,7 +444,7 @@ export function Inventory() {
                 {/* Pagination */}
                 {totalPages > 1 && (
                   <div className="flex items-center justify-between px-6 py-4 border-t">
-                    <span className="text-xs text-gray-500">Page {page} of {totalPages} · {total} batteries</span>
+                    <span className="text-xs text-gray-500">{inv.page} {page} {inv.of} {totalPages} · {total} {inv.batteries}</span>
                     <div className="flex gap-2">
                       <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1 || isLoading}>
                         <ChevronLeft className="w-4 h-4" />

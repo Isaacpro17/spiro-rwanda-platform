@@ -12,7 +12,6 @@
  *   <SpiroLogo className="..." />    → extra classes on the wrapper
  */
 
-
 const SIZE_MAP = {
   xs: { box: 'w-8 h-8',   img: 'h-8 w-8' },
   sm: { box: 'w-10 h-10', img: 'h-10 w-10' },
@@ -24,11 +23,8 @@ const SIZE_MAP = {
 type LogoSize = keyof typeof SIZE_MAP
 
 interface SpiroLogoProps {
-  /** Predefined size variant */
   size?: LogoSize
-  /** Clip the logo into a circle (default: true) */
   circular?: boolean
-  /** Extra Tailwind classes applied to the outer wrapper */
   className?: string
 }
 

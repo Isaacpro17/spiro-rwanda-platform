@@ -11,6 +11,7 @@ import {
 import { api } from '../../lib/api'
 import { stationService } from '../../services/stationService'
 import type { Station } from '../../types'
+import { useLanguage } from '../../contexts/LanguageContext'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -165,6 +166,15 @@ async function loadDashboard(): Promise<{
 // ── Page Component ────────────────────────────────────────────────────────────
 
 export function RiderDashboard() {
+  const { t } = useLanguage()
+  const d = t.rider.dashboard
+
+  const swapLabel = (status: string) =>
+    status === 'completed' ? d.statusCompleted
+    : status === 'in_progress' ? d.statusInProgress
+    : status === 'cancelled' ? d.statusCancelled
+    : status
+
   const [stats, setStats]                   = useState<DashboardStats | null>(null)
   const [recentSwaps, setRecentSwaps]       = useState<RecentSwapCard[]>([])
   const [nearestStations, setNearestStations] = useState<NearestStationCard[]>([])
@@ -199,9 +209,9 @@ export function RiderDashboard() {
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">
-              {isLoading ? 'Welcome back!' : `Welcome back, ${stats?.firstName || 'Rider'}!`}
+              {isLoading ? d.welcomeBack : `${d.welcomeBackName} ${stats?.firstName || 'Rider'}!`}
             </h1>
-            <p className="text-gray-600 mt-1">Here's your activity overview</p>
+            <p className="text-gray-600 mt-1">{d.subtitle}</p>
           </div>
           {!isLoading && (
             <button
@@ -220,7 +230,7 @@ export function RiderDashboard() {
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{error}</span>
             <Button variant="ghost" size="sm" onClick={load} className="ml-auto text-error hover:text-error">
-              Retry
+              {d.retry}
             </Button>
           </div>
         )}
@@ -235,7 +245,7 @@ export function RiderDashboard() {
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600">My Battery</p>
+                      <p className="text-sm font-medium text-gray-600">{d.myBattery}</p>
                       <p className="text-2xl font-bold text-gray-900 mt-1">
                         {stats?.batteryLevel != null ? `${stats.batteryLevel}%` : '—'}
                       </p>
@@ -256,7 +266,7 @@ export function RiderDashboard() {
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600">Wallet Balance</p>
+                      <p className="text-sm font-medium text-gray-600">{d.walletBalance}</p>
                       <p className="text-2xl font-bold text-gray-900 mt-1">
                         {stats?.walletBalance != null ? formatRwf(stats.walletBalance) : '—'}
                       </p>
@@ -272,7 +282,7 @@ export function RiderDashboard() {
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600">Swaps This Month</p>
+                      <p className="text-sm font-medium text-gray-600">{d.swapsThisMonth}</p>
                       <p className="text-2xl font-bold text-gray-900 mt-1">
                         {stats?.swapsThisMonth ?? '—'}
                       </p>
@@ -288,7 +298,7 @@ export function RiderDashboard() {
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600">Active Plan</p>
+                      <p className="text-sm font-medium text-gray-600">{d.activePlan}</p>
                       <p className="text-2xl font-bold text-gray-900 mt-1">
                         {stats?.activePlan || '—'}
                       </p>
@@ -306,26 +316,26 @@ export function RiderDashboard() {
         {/* Quick Actions */}
         <Card>
           <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
+            <CardTitle>{d.quickActions}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Link to="/rider/stations">
                 <Button variant="outline" className="w-full h-24 flex-col space-y-2">
                   <MapPin className="w-6 h-6" />
-                  <span>Find Station</span>
+                  <span>{d.findStation}</span>
                 </Button>
               </Link>
               <Link to="/rider/swap-request">
                 <Button variant="outline" className="w-full h-24 flex-col space-y-2">
                   <Battery className="w-6 h-6" />
-                  <span>Request Swap</span>
+                  <span>{d.requestSwap}</span>
                 </Button>
               </Link>
               <Link to="/rider/payments">
                 <Button variant="outline" className="w-full h-24 flex-col space-y-2">
                   <CreditCard className="w-6 h-6" />
-                  <span>Add Funds</span>
+                  <span>{d.addFunds}</span>
                 </Button>
               </Link>
             </div>
@@ -338,7 +348,7 @@ export function RiderDashboard() {
           {/* Recent Swaps */}
           <Card>
             <CardHeader>
-              <CardTitle>Recent Swaps</CardTitle>
+              <CardTitle>{d.recentSwaps}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-0">
@@ -347,8 +357,8 @@ export function RiderDashboard() {
                 {!isLoading && recentSwaps.length === 0 && (
                   <div className="flex flex-col items-center gap-2 py-8 text-center">
                     <History className="w-9 h-9 text-gray-300" />
-                    <p className="text-sm font-medium text-gray-700">No swaps yet</p>
-                    <p className="text-xs text-gray-500">Your completed swaps will appear here</p>
+                    <p className="text-sm font-medium text-gray-700">{d.noSwapsYet}</p>
+                    <p className="text-xs text-gray-500">{d.noSwapsDesc}</p>
                   </div>
                 )}
 
@@ -364,13 +374,13 @@ export function RiderDashboard() {
                       </div>
                     </div>
                     <Badge variant={swapStatusVariant(swap.status)} className="text-xs shrink-0">
-                      {swap.statusLabel}
+                      {swapLabel(swap.status)}
                     </Badge>
                   </div>
                 ))}
               </div>
               <Link to="/rider/swap-history">
-                <Button variant="ghost" className="w-full mt-4 text-sm">View All History</Button>
+                <Button variant="ghost" className="w-full mt-4 text-sm">{d.viewAllHistory}</Button>
               </Link>
             </CardContent>
           </Card>
@@ -378,7 +388,7 @@ export function RiderDashboard() {
           {/* Nearest Stations */}
           <Card>
             <CardHeader>
-              <CardTitle>Nearest Stations</CardTitle>
+              <CardTitle>{d.nearestStations}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-0">
@@ -387,8 +397,8 @@ export function RiderDashboard() {
                 {!isLoading && nearestStations.length === 0 && (
                   <div className="flex flex-col items-center gap-2 py-8 text-center">
                     <MapPin className="w-9 h-9 text-gray-300" />
-                    <p className="text-sm font-medium text-gray-700">No stations found</p>
-                    <p className="text-xs text-gray-500">Check back later</p>
+                    <p className="text-sm font-medium text-gray-700">{d.noStations}</p>
+                    <p className="text-xs text-gray-500">{d.noStationsDesc}</p>
                   </div>
                 )}
 
@@ -401,18 +411,18 @@ export function RiderDashboard() {
                       <div>
                         <p className="font-medium text-gray-900 text-sm">{station.name}</p>
                         <p className="text-xs text-gray-500">
-                          {station.distanceKm ? `${station.distanceKm} km away` : 'Distance unknown'}
+                          {station.distanceKm ? `${station.distanceKm} ${d.kmAway}` : d.distanceUnknown}
                         </p>
                       </div>
                     </div>
                     <span className="text-sm font-medium text-success shrink-0">
-                      {station.available} available
+                      {station.available} {d.available}
                     </span>
                   </div>
                 ))}
               </div>
               <Link to="/rider/stations">
-                <Button variant="ghost" className="w-full mt-4 text-sm">View All Stations</Button>
+                <Button variant="ghost" className="w-full mt-4 text-sm">{d.viewAllStations}</Button>
               </Link>
             </CardContent>
           </Card>

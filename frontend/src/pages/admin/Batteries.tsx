@@ -12,6 +12,7 @@ import {
   AlertTriangle, Activity,
 } from 'lucide-react'
 import { api } from '../../lib/api'
+import { useLanguage } from '../../contexts/LanguageContext'
 import type { BatteryData, BatteryDiagnostics } from '../../types'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -48,13 +49,15 @@ function fmtDate(iso: string) {
 // ── Create Battery Modal ──────────────────────────────────────────────────────
 
 function CreateBatteryModal({ onClose, onSave }: { onClose: () => void; onSave: () => void }) {
+  const { t } = useLanguage()
+  const cm = t.admin.batteries.createModal
   const [serialNumber, setSerialNumber] = useState('')
   const [chargeLevel, setChargeLevel] = useState('100')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
   const handleSave = async () => {
-    if (!serialNumber.trim()) { setError('Serial number is required'); return }
+    if (!serialNumber.trim()) { setError(cm.errSerial); return }
     setSaving(true)
     setError('')
     try {
@@ -72,25 +75,25 @@ function CreateBatteryModal({ onClose, onSave }: { onClose: () => void; onSave: 
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-semibold">Add Battery</h2>
+          <h2 className="text-lg font-semibold">{cm.title}</h2>
           <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100">
             <X className="w-4 h-4" />
           </button>
         </div>
         <div className="space-y-3">
           <div className="space-y-1">
-            <Label className="text-xs">Serial Number *</Label>
+            <Label className="text-xs">{cm.serial}</Label>
             <Input value={serialNumber} onChange={(e) => setSerialNumber(e.target.value)} placeholder="BAT-2024-XXXX" />
           </div>
           <div className="space-y-1">
-            <Label className="text-xs">Initial Charge Level (%)</Label>
+            <Label className="text-xs">{cm.charge}</Label>
             <Input type="number" min="0" max="100" value={chargeLevel} onChange={(e) => setChargeLevel(e.target.value)} />
           </div>
           {error && <p className="text-xs text-error flex items-center gap-1"><AlertCircle className="w-3.5 h-3.5" />{error}</p>}
           <div className="flex gap-2 pt-2">
-            <Button variant="outline" size="sm" onClick={onClose} className="flex-1">Cancel</Button>
+            <Button variant="outline" size="sm" onClick={onClose} className="flex-1">{cm.cancel}</Button>
             <Button size="sm" onClick={handleSave} disabled={saving} className="flex-1">
-              {saving && <Loader2 className="w-4 h-4 animate-spin mr-1" />}Add Battery
+              {saving && <Loader2 className="w-4 h-4 animate-spin mr-1" />}{cm.add}
             </Button>
           </div>
         </div>
@@ -102,6 +105,8 @@ function CreateBatteryModal({ onClose, onSave }: { onClose: () => void; onSave: 
 // ── Health Modal ──────────────────────────────────────────────────────────────
 
 function HealthModal({ batteryId, serialNumber, onClose }: { batteryId: string; serialNumber: string; onClose: () => void }) {
+  const { t } = useLanguage()
+  const hm = t.admin.batteries.healthModal
   const [health, setHealth] = useState<BatteryDiagnostics | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -121,7 +126,7 @@ function HealthModal({ batteryId, serialNumber, onClose }: { batteryId: string; 
       <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h2 className="text-lg font-semibold">Battery Health</h2>
+            <h2 className="text-lg font-semibold">{hm.title}</h2>
             <p className="text-xs text-gray-500 font-mono">{serialNumber}</p>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100">
@@ -139,7 +144,7 @@ function HealthModal({ batteryId, serialNumber, onClose }: { batteryId: string; 
           <div className="space-y-4">
             <div>
               <div className="flex justify-between text-sm mb-1.5">
-                <span className="text-gray-600">Overall Health</span>
+                <span className="text-gray-600">{hm.overallHealth}</span>
                 <span className="font-bold text-gray-900">{hPct}%</span>
               </div>
               <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
@@ -149,10 +154,10 @@ function HealthModal({ batteryId, serialNumber, onClose }: { batteryId: string; 
 
             <div className="grid grid-cols-2 gap-3">
               {[
-                { label: 'Charge Level', value: `${health.chargeLevel ?? '—'}%` },
-                { label: 'Cycle Count', value: health.cycleCount ?? '—' },
-                { label: 'Age (days)', value: health.ageInDays ?? '—' },
-                { label: 'Remaining Cycles', value: health.expectedRemainingCycles ?? '—' },
+                { label: hm.chargeLevel, value: `${health.chargeLevel ?? '—'}%` },
+                { label: hm.cycleCount, value: health.cycleCount ?? '—' },
+                { label: hm.ageDays, value: health.ageInDays ?? '—' },
+                { label: hm.remainingCycles, value: health.expectedRemainingCycles ?? '—' },
               ].map(({ label, value }) => (
                 <div key={label} className="p-3 bg-gray-50 rounded-xl">
                   <p className="text-xs text-gray-500">{label}</p>
@@ -163,11 +168,11 @@ function HealthModal({ batteryId, serialNumber, onClose }: { batteryId: string; 
 
             {health.recommendations?.length > 0 && (
               <div className="p-3 bg-warning/5 border border-warning/20 rounded-xl">
-                <p className="text-xs font-medium text-warning mb-1.5">Recommendations</p>
+                <p className="text-xs font-medium text-warning mb-1.5">{hm.recommendations}</p>
                 <ul className="space-y-1">
-                  {health.recommendations.map((r, i) => (
+                  {health.recommendations.map((rec, i) => (
                     <li key={i} className="text-xs text-gray-700 flex items-start gap-1.5">
-                      <span className="mt-1.5 w-1 h-1 rounded-full bg-warning shrink-0" />{r}
+                      <span className="mt-1.5 w-1 h-1 rounded-full bg-warning shrink-0" />{rec}
                     </li>
                   ))}
                 </ul>
@@ -185,6 +190,8 @@ function HealthModal({ batteryId, serialNumber, onClose }: { batteryId: string; 
 const PAGE_SIZE = 25
 
 export function Batteries() {
+  const { t } = useLanguage()
+  const b = t.admin.batteries
   const [batteries, setBatteries] = useState<BatteryData[]>([])
   const [stats, setStats] = useState<BatteryStats | null>(null)
   const [total, setTotal] = useState(0)
@@ -251,7 +258,7 @@ export function Batteries() {
 
   const toggleAll = () => {
     setSelected((prev) =>
-      prev.size === batteries.length ? new Set() : new Set(batteries.map((b) => b._id))
+      prev.size === batteries.length ? new Set() : new Set(batteries.map((bat) => bat._id))
     )
   }
 
@@ -264,15 +271,15 @@ export function Batteries() {
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Battery Fleet</h1>
-            <p className="text-gray-600 mt-1">Manage and monitor the battery inventory</p>
+            <h1 className="text-3xl font-bold text-gray-900">{b.title}</h1>
+            <p className="text-gray-600 mt-1">{b.subtitle}</p>
           </div>
           <div className="flex gap-2">
             <button onClick={() => loadData(page)} className="p-2 rounded-lg text-gray-400 hover:text-primary hover:bg-primary/5 transition-colors">
               <RefreshCw className="w-4 h-4" />
             </button>
             <Button size="sm" onClick={() => setShowCreate(true)}>
-              <Plus className="w-4 h-4 mr-1" />Add Battery
+              <Plus className="w-4 h-4 mr-1" />{b.addBattery}
             </Button>
           </div>
         </div>
@@ -280,7 +287,7 @@ export function Batteries() {
         {error && (
           <div className="flex items-center gap-3 p-4 bg-error/5 border border-error/20 rounded-xl text-sm text-error">
             <AlertCircle className="w-4 h-4 shrink-0" /><span>{error}</span>
-            <Button variant="ghost" size="sm" onClick={() => loadData(page)} className="ml-auto text-error">Retry</Button>
+            <Button variant="ghost" size="sm" onClick={() => loadData(page)} className="ml-auto text-error">{b.retry}</Button>
           </div>
         )}
 
@@ -288,20 +295,20 @@ export function Batteries() {
         {stats && (
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
             {[
-              { label: 'Total', value: stats.total, icon: <Battery className="w-5 h-5" />, color: 'text-gray-900' },
-              { label: 'Available', value: stats.byStatus.available ?? 0, icon: <CheckCircle2 className="w-5 h-5" />, color: 'text-success' },
-              { label: 'Charging', value: stats.byStatus.charging ?? 0, icon: <Zap className="w-5 h-5" />, color: 'text-warning' },
-              { label: 'In Use', value: stats.byStatus.in_use ?? 0, icon: <Activity className="w-5 h-5" />, color: 'text-primary' },
-              { label: 'Faulty / Repair', value: (stats.byStatus.faulty ?? 0) + (stats.byStatus.repair ?? 0), icon: <AlertTriangle className="w-5 h-5" />, color: 'text-error' },
-            ].map((s) => (
-              <Card key={s.label}>
+              { label: b.statTotal, value: stats.total, icon: <Battery className="w-5 h-5" />, color: 'text-gray-900' },
+              { label: b.statAvailable, value: stats.byStatus.available ?? 0, icon: <CheckCircle2 className="w-5 h-5" />, color: 'text-success' },
+              { label: b.statCharging, value: stats.byStatus.charging ?? 0, icon: <Zap className="w-5 h-5" />, color: 'text-warning' },
+              { label: b.statInUse, value: stats.byStatus.in_use ?? 0, icon: <Activity className="w-5 h-5" />, color: 'text-primary' },
+              { label: b.statFaulty, value: (stats.byStatus.faulty ?? 0) + (stats.byStatus.repair ?? 0), icon: <AlertTriangle className="w-5 h-5" />, color: 'text-error' },
+            ].map((stat) => (
+              <Card key={stat.label}>
                 <CardContent className="pt-4 pb-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs text-gray-500">{s.label}</p>
-                      <p className={`text-2xl font-bold mt-1 ${s.color}`}>{s.value}</p>
+                      <p className="text-xs text-gray-500">{stat.label}</p>
+                      <p className={`text-2xl font-bold mt-1 ${stat.color}`}>{stat.value}</p>
                     </div>
-                    <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-gray-500">{s.icon}</div>
+                    <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-gray-500">{stat.icon}</div>
                   </div>
                 </CardContent>
               </Card>
@@ -315,37 +322,37 @@ export function Batteries() {
             <div className="flex flex-wrap gap-3 items-end">
               <div className="relative flex-1 min-w-48">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <Input className="pl-9" placeholder="Search by serial number…" value={search} onChange={(e) => setSearch(e.target.value)} />
+                <Input className="pl-9" placeholder={b.searchPlaceholder} value={search} onChange={(e) => setSearch(e.target.value)} />
               </div>
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
                 className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
               >
-                <option value="">All Status</option>
-                <option value="available">Available</option>
-                <option value="charging">Charging</option>
-                <option value="in_use">In Use</option>
-                <option value="faulty">Faulty</option>
-                <option value="repair">Repair</option>
+                <option value="">{b.allStatus}</option>
+                <option value="available">{b.statusAvailable}</option>
+                <option value="charging">{b.statusCharging}</option>
+                <option value="in_use">{b.statusInUse}</option>
+                <option value="faulty">{b.statusFaulty}</option>
+                <option value="repair">{b.statusRepair}</option>
               </select>
 
               {selected.size > 0 && (
                 <div className="flex items-center gap-2 ml-auto">
-                  <span className="text-xs text-gray-500">{selected.size} selected</span>
+                  <span className="text-xs text-gray-500">{b.selected.replace('{n}', String(selected.size))}</span>
                   <select
                     value={bulkStatus}
                     onChange={(e) => setBulkStatus(e.target.value)}
                     className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none"
                   >
-                    <option value="">Set status…</option>
-                    <option value="available">Available</option>
-                    <option value="repair">Repair</option>
-                    <option value="faulty">Faulty</option>
+                    <option value="">{b.setStatus}</option>
+                    <option value="available">{b.statusAvailable}</option>
+                    <option value="repair">{b.statusRepair}</option>
+                    <option value="faulty">{b.statusFaulty}</option>
                   </select>
                   <Button size="sm" onClick={handleBulkStatus} disabled={!bulkStatus || bulking}>
                     {bulking ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Wrench className="w-4 h-4 mr-1" />}
-                    Apply
+                    {b.apply}
                   </Button>
                 </div>
               )}
@@ -357,7 +364,7 @@ export function Batteries() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle>
-              Batteries
+              {b.cardTitle}
               {!isLoading && <span className="ml-2 text-sm font-normal text-gray-400">({total} total)</span>}
             </CardTitle>
           </CardHeader>
@@ -371,7 +378,7 @@ export function Batteries() {
                 <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center">
                   <Battery className="w-7 h-7 text-gray-400" />
                 </div>
-                <p className="text-sm font-medium text-gray-700">No batteries found</p>
+                <p className="text-sm font-medium text-gray-700">{b.emptyTitle}</p>
               </div>
             ) : (
               <>
@@ -387,13 +394,13 @@ export function Batteries() {
                             className="rounded"
                           />
                         </TableHead>
-                        <TableHead>Serial Number</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Charge</TableHead>
-                        <TableHead>Station</TableHead>
-                        <TableHead>Last Swap</TableHead>
-                        <TableHead>Repairs</TableHead>
-                        <TableHead className="text-right">Health</TableHead>
+                        <TableHead>{b.colSerial}</TableHead>
+                        <TableHead>{b.colStatus}</TableHead>
+                        <TableHead>{b.colCharge}</TableHead>
+                        <TableHead>{b.colStation}</TableHead>
+                        <TableHead>{b.colLastSwap}</TableHead>
+                        <TableHead>{b.colRepairs}</TableHead>
+                        <TableHead className="text-right">{b.colHealth}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -431,7 +438,7 @@ export function Batteries() {
                               <span className="text-xs font-mono bg-gray-100 px-2 py-0.5 rounded">
                                 {typeof bat.stationId === 'string' ? bat.stationId.slice(-6) : '—'}
                               </span>
-                            ) : <span className="text-gray-300 italic text-xs">Unassigned</span>}
+                            ) : <span className="text-gray-300 italic text-xs">{b.unassigned}</span>}
                           </TableCell>
                           <TableCell className="text-sm text-gray-500">
                             {bat.lastSwapAt ? fmtDate(bat.lastSwapAt) : '—'}
@@ -446,7 +453,7 @@ export function Batteries() {
                               onClick={() => setHealthTarget({ id: bat._id, serial: bat.serialNumber })}
                               className="text-xs text-primary hover:underline font-medium"
                             >
-                              View
+                              {b.view}
                             </button>
                           </TableCell>
                         </TableRow>
@@ -457,7 +464,7 @@ export function Batteries() {
 
                 {totalPages > 1 && (
                   <div className="flex items-center justify-between px-6 py-4 border-t">
-                    <span className="text-xs text-gray-500">Page {page} of {totalPages} · {total} batteries</span>
+                    <span className="text-xs text-gray-500">{b.page} {page} {b.of} {totalPages} · {total} {b.totalBatteries}</span>
                     <div className="flex gap-2">
                       <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1 || isLoading}>
                         <ChevronLeft className="w-4 h-4" />

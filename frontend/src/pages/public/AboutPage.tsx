@@ -1,145 +1,170 @@
+import { type RefObject } from 'react'
+import { Link } from 'react-router-dom'
 import { Navbar } from '../../components/layout/Navbar'
 import { Footer } from '../../components/layout/Footer'
-import { Target, Eye, Users, Award } from 'lucide-react'
+import { Button } from '../../components/ui/button'
+import { Reveal } from '../../components/ui/Reveal'
+import { Target, Eye, Users, Award, Leaf, ArrowRight } from 'lucide-react'
+import { useCountUp } from '../../hooks/useCountUp'
+import { useLanguage } from '../../contexts/LanguageContext'
+
+function ImpactStat({ end, suffix, label }: { end: number; suffix: string; label: string }) {
+  const { ref, display } = useCountUp({ end, suffix, duration: 2200 })
+  return (
+    <div className="text-center">
+      <div
+        ref={ref as RefObject<HTMLDivElement>}
+        className="text-4xl lg:text-5xl font-bold text-accent-500 mb-2 tabular-nums"
+      >
+        {display}
+      </div>
+      <div className="text-gray-200 font-medium">{label}</div>
+    </div>
+  )
+}
+
+const valueIcons = [Users, Award, Leaf]
 
 export function AboutPage() {
+  const { t } = useLanguage()
+  const a = t.about
+
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
 
-      {/* Hero Section */}
-      <section className="bg-primary text-white py-20">
+      {/* ── Hero ── */}
+      <section className="relative text-white overflow-hidden py-28 lg:py-36 flex items-center">
+        <img
+          src="/spiro-motorcycle.png"
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 w-full h-full object-cover object-center"
+          loading="eager"
+        />
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/[0.90] via-primary/[0.82] to-primary/[0.68]" />
+        <div className="absolute inset-0 bg-black/[0.12]" />
+        <div
+          className="absolute inset-0 opacity-[0.08] pointer-events-none"
+          style={{
+            backgroundImage:
+              'radial-gradient(circle at 20% 30%, #FFE500 0%, transparent 45%), radial-gradient(circle at 80% 70%, #4757C1 0%, transparent 45%)',
+          }}
+        />
+        <div className="relative w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <div className="animate-fade-up">
+            <span className="inline-flex items-center px-4 py-1.5 rounded-full bg-accent-500/20 border border-accent-500/30 text-accent-300 text-sm font-semibold mb-6">
+              <Leaf className="w-4 h-4 mr-2" />
+              {a.hero.badge}
+            </span>
+          </div>
+          <h1 className="text-4xl lg:text-6xl font-bold mb-6 animate-fade-up delay-100">
+            {a.hero.title}
+          </h1>
+          <p className="text-xl text-gray-200 max-w-3xl mx-auto animate-fade-up delay-200">
+            {a.hero.subtitle}
+          </p>
+        </div>
+      </section>
+
+      {/* ── Mission & Vision ── */}
+      <section className="py-24 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <h1 className="text-4xl lg:text-5xl font-bold mb-6">About Spiro Rwanda</h1>
-            <p className="text-xl text-gray-100 max-w-3xl mx-auto">
-              Leading Africa's electric mobility revolution through sustainable energy solutions
-            </p>
+          <Reveal className="text-center mb-16">
+            <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">{a.drives.title}</h2>
+            <p className="text-lg text-gray-500 max-w-2xl mx-auto">{a.drives.subtitle}</p>
+          </Reveal>
+          <div className="grid md:grid-cols-2 gap-8">
+            <Reveal delay={0}>
+              <div className="bg-gray-50 border border-gray-100 p-8 rounded-2xl h-full hover:shadow-md transition-shadow duration-300">
+                <div className="w-14 h-14 bg-primary/10 rounded-xl flex items-center justify-center mb-6">
+                  <Target className="w-7 h-7 text-primary" />
+                </div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-4">{a.drives.mission.title}</h2>
+                <p className="text-gray-600 leading-relaxed">{a.drives.mission.body}</p>
+              </div>
+            </Reveal>
+            <Reveal delay={150}>
+              <div className="bg-gray-50 border border-gray-100 p-8 rounded-2xl h-full hover:shadow-md transition-shadow duration-300">
+                <div className="w-14 h-14 bg-primary/10 rounded-xl flex items-center justify-center mb-6">
+                  <Eye className="w-7 h-7 text-primary" />
+                </div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-4">{a.drives.vision.title}</h2>
+                <p className="text-gray-600 leading-relaxed">{a.drives.vision.body}</p>
+              </div>
+            </Reveal>
           </div>
         </div>
       </section>
 
-      {/* Mission & Vision */}
-      <section className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid md:grid-cols-2 gap-12">
-            <div className="bg-gray-50 p-8 rounded-xl">
-              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-6">
-                <Target className="w-8 h-8 text-primary" />
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Our Mission</h2>
-              <p className="text-gray-600 leading-relaxed">
-                To enhance livelihoods across Africa by leading the large-scale electrification of
-                mobility through sustainable energy solutions. We are committed to making electric
-                transportation accessible, affordable, and reliable for all.
-              </p>
-            </div>
-
-            <div className="bg-gray-50 p-8 rounded-xl">
-              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-6">
-                <Eye className="w-8 h-8 text-primary" />
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Our Vision</h2>
-              <p className="text-gray-600 leading-relaxed">
-                To be Africa's leading provider of electric mobility solutions, creating a cleaner,
-                more sustainable future while empowering communities through innovative technology
-                and accessible green transportation.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Story */}
-      <section className="py-20 bg-gray-50">
+      {/* ── Story ── */}
+      <section className="py-24 bg-gray-50">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-bold text-gray-900 mb-8 text-center">Our Story</h2>
-          <div className="prose prose-lg max-w-none text-gray-600">
-            <p className="mb-4">
-              Rwanda has emerged as a continental leader in sustainable development and green
-              technology adoption, positioning itself at the forefront of Africa's electric mobility
-              revolution. The country's Vision 2050 and Green Growth Strategy emphasize transitioning
-              to clean energy solutions and reducing carbon emissions across all sectors.
-            </p>
-            <p className="mb-4">
-              In this transformative landscape, Spiro Rwanda has established itself as a pioneer in
-              electric mobility solutions, operating an extensive network of battery swapping and
-              charging stations across Kigali and expanding to other urban centers. We provide
-              electric motorcycles to riders through flexible ownership and rental models, supported
-              by a comprehensive battery swap infrastructure.
-            </p>
-            <p>
-              Our commitment goes beyond just providing vehicles – we're building an ecosystem that
-              supports riders, reduces environmental impact, and contributes to Rwanda's sustainable
-              development goals. Every battery swap represents a step towards a cleaner, greener future.
-            </p>
+          <Reveal className="text-center mb-12">
+            <h2 className="text-3xl lg:text-4xl font-bold text-gray-900">{a.story.title}</h2>
+          </Reveal>
+          <div className="space-y-6 text-lg text-gray-600 leading-relaxed">
+            <Reveal delay={0}><p>{a.story.p1}</p></Reveal>
+            <Reveal delay={100}><p>{a.story.p2}</p></Reveal>
+            <Reveal delay={200}><p>{a.story.p3}</p></Reveal>
           </div>
         </div>
       </section>
 
-      {/* Values */}
-      <section className="py-20 bg-white">
+      {/* ── Values ── */}
+      <section className="py-24 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-bold text-gray-900 mb-12 text-center">Our Values</h2>
+          <Reveal className="text-center mb-16">
+            <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">{a.values.title}</h2>
+            <p className="text-lg text-gray-500 max-w-2xl mx-auto">{a.values.subtitle}</p>
+          </Reveal>
           <div className="grid md:grid-cols-3 gap-8">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Users className="w-8 h-8 text-primary" />
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-3">Community First</h3>
-              <p className="text-gray-600">
-                We prioritize the needs of our riders and communities, ensuring accessible and
-                reliable service for all.
-              </p>
-            </div>
-
-            <div className="text-center">
-              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Award className="w-8 h-8 text-primary" />
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-3">Excellence</h3>
-              <p className="text-gray-600">
-                We maintain the highest standards in service delivery, technology, and customer
-                support.
-              </p>
-            </div>
-
-            <div className="text-center">
-              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Target className="w-8 h-8 text-primary" />
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-3">Sustainability</h3>
-              <p className="text-gray-600">
-                Environmental responsibility guides every decision we make, from operations to
-                partnerships.
-              </p>
-            </div>
+            {a.values.items.map((item, i) => {
+              const Icon = valueIcons[i]
+              return (
+                <Reveal key={item.title} delay={i * 150}>
+                  <div className="text-center group p-6 rounded-2xl hover:bg-gray-50 transition-colors duration-300">
+                    <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-5 group-hover:bg-primary/15 transition-colors duration-300">
+                      <Icon className="w-8 h-8 text-primary" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-gray-900 mb-3">{item.title}</h3>
+                    <p className="text-gray-600 leading-relaxed">{item.body}</p>
+                  </div>
+                </Reveal>
+              )
+            })}
           </div>
         </div>
       </section>
 
-      {/* Impact */}
-      <section className="py-20 bg-primary text-white">
+      {/* ── Impact ── */}
+      <section className="py-24 bg-primary text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-bold mb-12 text-center">Our Impact</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            <div className="text-center">
-              <div className="text-4xl font-bold text-accent-500 mb-2">50+</div>
-              <div className="text-gray-100">Charging Stations</div>
-            </div>
-            <div className="text-center">
-              <div className="text-4xl font-bold text-accent-500 mb-2">1,200+</div>
-              <div className="text-gray-100">Active Riders</div>
-            </div>
-            <div className="text-center">
-              <div className="text-4xl font-bold text-accent-500 mb-2">45K+</div>
-              <div className="text-gray-100">Monthly Swaps</div>
-            </div>
-            <div className="text-center">
-              <div className="text-4xl font-bold text-accent-500 mb-2">2.5M</div>
-              <div className="text-gray-100">kg CO₂ Saved</div>
-            </div>
+          <Reveal className="text-center mb-16">
+            <h2 className="text-3xl lg:text-4xl font-bold mb-4">{a.impact.title}</h2>
+            <p className="text-lg text-gray-300 max-w-2xl mx-auto">{a.impact.subtitle}</p>
+          </Reveal>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 lg:gap-12">
+            <Reveal delay={0}>  <ImpactStat end={50}      suffix="+"  label={a.impact.stations} /></Reveal>
+            <Reveal delay={100}><ImpactStat end={1200}    suffix="+"  label={a.impact.riders}   /></Reveal>
+            <Reveal delay={200}><ImpactStat end={45000}   suffix="+"  label={a.impact.swaps}    /></Reveal>
+            <Reveal delay={300}><ImpactStat end={2500000} suffix=""   label={a.impact.co2}      /></Reveal>
           </div>
+        </div>
+      </section>
+
+      {/* ── CTA ── */}
+      <section className="py-24 bg-gray-50">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <Reveal>
+            <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">{a.cta.title}</h2>
+            <p className="text-lg text-gray-600 mb-8">{a.cta.subtitle}</p>
+            <Link to="/login">
+              <Button size="lg" className="px-8 font-bold shadow-lg hover:scale-105 transition-transform">
+                {a.cta.button} <ArrowRight className="ml-2 w-5 h-5" />
+              </Button>
+            </Link>
+          </Reveal>
         </div>
       </section>
 

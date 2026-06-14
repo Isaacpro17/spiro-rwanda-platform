@@ -11,6 +11,7 @@ import {
   MapPin, ChevronLeft, ChevronRight, TrendingUp, Wrench, Calendar,
 } from 'lucide-react'
 import { api } from '../../lib/api'
+import { useLanguage } from '../../contexts/LanguageContext'
 import type { StationMaintenanceRequest } from '../../types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -64,13 +65,14 @@ function SummaryCard({ label, value, icon, valueColor }: {
 const PAGE_SIZE = 20
 
 export function WorkHistory() {
+  const { t } = useLanguage()
+  const h = t.technician.history
   const [tasks, setTasks] = useState<StationMaintenanceRequest[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Date filter (applied client-side on returned data for simplicity)
   const defaultEnd = isoDate(new Date())
   const defaultStart = isoDate(new Date(Date.now() - 29 * 86400000))
   const [startDate, setStartDate] = useState(defaultStart)
@@ -99,9 +101,8 @@ export function WorkHistory() {
 
   useEffect(() => { loadHistory(page) }, [page, loadHistory])
 
-  // Local date filter
-  const filtered = tasks.filter((t) => {
-    const d = t.resolvedAt ?? t.updatedAt
+  const filtered = tasks.filter((task) => {
+    const d = task.resolvedAt ?? task.updatedAt
     if (!d) return true
     const ts = new Date(d).getTime()
     const from = startDate ? new Date(startDate).getTime() : 0
@@ -109,16 +110,15 @@ export function WorkHistory() {
     return ts >= from && ts <= to
   })
 
-  // Stats from filtered results
   const urgencyCounts = filtered.reduce(
-    (acc, t) => { acc[t.urgency] = (acc[t.urgency] ?? 0) + 1; return acc },
+    (acc, task) => { acc[task.urgency] = (acc[task.urgency] ?? 0) + 1; return acc },
     {} as Record<string, number>
   )
 
-  const avgResolutionMs = filtered.reduce((acc, t) => {
-    if (!t.resolvedAt) return acc
-    return acc + (new Date(t.resolvedAt).getTime() - new Date(t.createdAt).getTime())
-  }, 0) / (filtered.filter((t) => t.resolvedAt).length || 1)
+  const avgResolutionMs = filtered.reduce((acc, task) => {
+    if (!task.resolvedAt) return acc
+    return acc + (new Date(task.resolvedAt).getTime() - new Date(task.createdAt).getTime())
+  }, 0) / (filtered.filter((task) => task.resolvedAt).length || 1)
 
   const avgResolutionHours = Math.round(avgResolutionMs / 3600000)
 
@@ -131,8 +131,8 @@ export function WorkHistory() {
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Work History</h1>
-            <p className="text-gray-600 mt-1">Completed maintenance tasks log</p>
+            <h1 className="text-3xl font-bold text-gray-900">{h.title}</h1>
+            <p className="text-gray-600 mt-1">{h.subtitle}</p>
           </div>
           <button
             onClick={() => loadHistory(page)}
@@ -146,7 +146,7 @@ export function WorkHistory() {
           <div className="flex items-center gap-3 p-4 bg-error/5 border border-error/20 rounded-xl text-sm text-error">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{error}</span>
-            <Button variant="ghost" size="sm" onClick={() => loadHistory(page)} className="ml-auto text-error">Retry</Button>
+            <Button variant="ghost" size="sm" onClick={() => loadHistory(page)} className="ml-auto text-error">{h.retry}</Button>
           </div>
         )}
 
@@ -155,7 +155,7 @@ export function WorkHistory() {
           <CardContent className="pt-4 pb-4">
             <div className="flex flex-wrap items-end gap-3">
               <div className="space-y-1">
-                <Label className="text-xs">From</Label>
+                <Label className="text-xs">{h.from}</Label>
                 <Input
                   type="date"
                   value={startDate}
@@ -164,7 +164,7 @@ export function WorkHistory() {
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">To</Label>
+                <Label className="text-xs">{h.to}</Label>
                 <Input
                   type="date"
                   value={endDate}
@@ -174,12 +174,12 @@ export function WorkHistory() {
               </div>
               <div className="flex gap-1.5 ml-auto">
                 {[
-                  { label: '7 days', days: 7 },
-                  { label: '30 days', days: 30 },
-                  { label: '90 days', days: 90 },
+                  { label: h.preset7, days: 7 },
+                  { label: h.preset30, days: 30 },
+                  { label: h.preset90, days: 90 },
                 ].map(({ label, days }) => (
                   <button
-                    key={label}
+                    key={days}
                     onClick={() => {
                       setStartDate(isoDate(new Date(Date.now() - (days - 1) * 86400000)))
                       setEndDate(isoDate(new Date()))
@@ -198,25 +198,25 @@ export function WorkHistory() {
         {!isLoading && (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <SummaryCard
-              label="Tasks Resolved"
+              label={h.statResolved}
               value={filtered.length}
               icon={<CheckCircle2 className="w-5 h-5" />}
               valueColor="text-success"
             />
             <SummaryCard
-              label="Avg Resolution Time"
+              label={h.statAvgTime}
               value={`${avgResolutionHours}h`}
               icon={<Clock className="w-5 h-5" />}
               valueColor="text-primary"
             />
             <SummaryCard
-              label="Critical/High Resolved"
+              label={h.statCritical}
               value={(urgencyCounts['critical'] ?? 0) + (urgencyCounts['high'] ?? 0)}
               icon={<TrendingUp className="w-5 h-5" />}
               valueColor="text-error"
             />
             <SummaryCard
-              label="Total (all time)"
+              label={h.statTotal}
               value={total}
               icon={<Wrench className="w-5 h-5" />}
               valueColor="text-gray-900"
@@ -228,7 +228,7 @@ export function WorkHistory() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle>
-              Completed Tasks
+              {h.cardTitle}
               {!isLoading && (
                 <span className="ml-2 text-sm font-normal text-gray-400">({filtered.length} shown)</span>
               )}
@@ -244,8 +244,8 @@ export function WorkHistory() {
                 <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center">
                   <Calendar className="w-7 h-7 text-gray-400" />
                 </div>
-                <p className="text-sm font-medium text-gray-700">No resolved tasks in this period</p>
-                <p className="text-xs text-gray-500">Try adjusting the date range</p>
+                <p className="text-sm font-medium text-gray-700">{h.emptyTitle}</p>
+                <p className="text-xs text-gray-500">{h.emptyDesc}</p>
               </div>
             ) : (
               <>
@@ -253,12 +253,12 @@ export function WorkHistory() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Date Resolved</TableHead>
-                        <TableHead>Station</TableHead>
-                        <TableHead>Equipment</TableHead>
-                        <TableHead>Urgency</TableHead>
-                        <TableHead>Resolution Time</TableHead>
-                        <TableHead>Notes</TableHead>
+                        <TableHead>{h.colDateResolved}</TableHead>
+                        <TableHead>{h.colStation}</TableHead>
+                        <TableHead>{h.colEquipment}</TableHead>
+                        <TableHead>{h.colUrgency}</TableHead>
+                        <TableHead>{h.colResolutionTime}</TableHead>
+                        <TableHead>{h.colNotes}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -303,7 +303,7 @@ export function WorkHistory() {
                 {totalPages > 1 && (
                   <div className="flex items-center justify-between px-6 py-4 border-t">
                     <span className="text-xs text-gray-500">
-                      Page {page} of {totalPages} · {total} total resolved
+                      {h.page} {page} {h.of} {totalPages} · {total} {h.totalResolved}
                     </span>
                     <div className="flex gap-2">
                       <Button

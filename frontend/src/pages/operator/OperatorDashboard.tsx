@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../contexts/AuthContext'
+import { useLanguage } from '../../contexts/LanguageContext'
 import type { StationDetail, StationStats, QueueStatus } from '../../types'
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -60,6 +61,8 @@ function KpiCard({ label, value, icon, iconBg, loading }: KpiCardProps) {
 
 export function OperatorDashboard() {
   const { user } = useAuth()
+  const { t } = useLanguage()
+  const d = t.operator.dashboard
   const [station, setStation] = useState<StationDetail | null>(null)
   const [stats, setStats] = useState<StationStats | null>(null)
   const [queue, setQueue] = useState<QueueStatus | null>(null)
@@ -123,7 +126,7 @@ export function OperatorDashboard() {
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Operator Dashboard</h1>
+            <h1 className="text-3xl font-bold text-gray-900">{d.title}</h1>
             <p className="text-gray-600 mt-1">
               {station ? (
                 <span className="flex items-center gap-1.5">
@@ -131,7 +134,7 @@ export function OperatorDashboard() {
                   {station.name}
                   {station.address && <span className="text-gray-400">— {station.address}</span>}
                 </span>
-              ) : 'Station overview and operations'}
+              ) : d.subtitle}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -156,11 +159,11 @@ export function OperatorDashboard() {
           <div className="flex items-center gap-3 p-4 bg-warning/5 border border-warning/20 rounded-xl text-sm text-warning">
             <AlertTriangle className="w-4 h-4 shrink-0" />
             <span>
-              Low battery inventory: <strong>{station?.availableBatteries}</strong> available
-              (threshold: {station?.lowInventoryThreshold}).{' '}
+              {d.lowInventory} <strong>{station?.availableBatteries}</strong> {d.available}
+              ({d.threshold} {station?.lowInventoryThreshold}).{' '}
             </span>
             <Link to="/operator/inventory" className="ml-auto font-semibold underline">
-              Manage Inventory
+              {d.manageInventory}
             </Link>
           </div>
         )}
@@ -168,7 +171,7 @@ export function OperatorDashboard() {
         {!isLoading && stationOffline && (
           <div className="flex items-center gap-3 p-4 bg-error/5 border border-error/20 rounded-xl text-sm text-error">
             <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>Station is currently <strong>{station?.status}</strong> and not accepting swaps.</span>
+            <span>{d.stationOffline} <strong>{station?.status}</strong> {d.stationOfflineSuffix}</span>
           </div>
         )}
 
@@ -178,7 +181,7 @@ export function OperatorDashboard() {
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{error}</span>
             <Button variant="ghost" size="sm" onClick={handleRefresh} className="ml-auto text-error">
-              Retry
+              {d.retry}
             </Button>
           </div>
         )}
@@ -186,29 +189,29 @@ export function OperatorDashboard() {
         {/* KPI cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <KpiCard
-            label="Available Batteries"
+            label={d.kpiAvailable}
             value={isLoading ? '—' : station?.availableBatteries ?? 0}
             icon={<Battery className="w-6 h-6 text-success" />}
             iconBg="bg-success/10"
             loading={isLoading}
           />
           <KpiCard
-            label="Charging"
+            label={d.kpiCharging}
             value={isLoading ? '—' : station?.chargingBatteries ?? 0}
             icon={<Battery className="w-6 h-6 text-warning" />}
             iconBg="bg-warning/10"
             loading={isLoading}
           />
           <KpiCard
-            label="Queue Length"
+            label={d.kpiQueue}
             value={isLoading ? '—' : queue?.length ?? 0}
             icon={<Users className="w-6 h-6 text-primary" />}
             iconBg="bg-primary/10"
             loading={isLoading}
           />
           <KpiCard
-            label="Est. Wait Time"
-            value={isLoading ? '—' : `${queue?.estimatedWait ?? 0} min`}
+            label={d.kpiWait}
+            value={isLoading ? '—' : `${queue?.estimatedWait ?? 0} ${d.min}`}
             icon={<Clock className="w-6 h-6 text-blue-500" />}
             iconBg="bg-blue-50"
             loading={isLoading}
@@ -218,7 +221,7 @@ export function OperatorDashboard() {
         {/* Today's activity */}
         <Card>
           <CardHeader>
-            <CardTitle>Today's Activity</CardTitle>
+            <CardTitle>{d.todayActivity}</CardTitle>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -233,19 +236,19 @@ export function OperatorDashboard() {
             ) : (
               <div className="grid md:grid-cols-3 gap-6">
                 <div>
-                  <p className="text-sm text-gray-600">Swaps Completed</p>
+                  <p className="text-sm text-gray-600">{d.swapsCompleted}</p>
                   <p className="text-3xl font-bold text-primary mt-2">
                     {stats?.todaySwaps ?? 0}
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Revenue Generated</p>
+                  <p className="text-sm text-gray-600">{d.revenueGenerated}</p>
                   <p className="text-3xl font-bold text-success mt-2">
                     {fmtRwf(stats?.todayRevenueRwf ?? 0)}
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Utilization</p>
+                  <p className="text-sm text-gray-600">{d.utilization}</p>
                   <p className="text-3xl font-bold text-warning mt-2">
                     {stats?.utilizationPercent ?? 0}%
                   </p>
@@ -258,15 +261,15 @@ export function OperatorDashboard() {
         {/* Quick actions */}
         <Card>
           <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
+            <CardTitle>{d.quickActions}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
-                { to: '/operator/swap-process', icon: <TrendingUp className="w-5 h-5" />, label: 'Process Swap', color: 'bg-primary/10 text-primary' },
-                { to: '/operator/reservations', icon: <Clock className="w-5 h-5" />, label: 'Reservations', color: 'bg-blue-50 text-blue-600' },
-                { to: '/operator/inventory', icon: <Battery className="w-5 h-5" />, label: 'Inventory', color: 'bg-success/10 text-success' },
-                { to: '/operator/maintenance', icon: <Wrench className="w-5 h-5" />, label: 'Maintenance', color: 'bg-warning/10 text-warning' },
+                { to: '/operator/swap-process', icon: <TrendingUp className="w-5 h-5" />, label: d.processSwap, color: 'bg-primary/10 text-primary' },
+                { to: '/operator/reservations', icon: <Clock className="w-5 h-5" />, label: d.reservations, color: 'bg-blue-50 text-blue-600' },
+                { to: '/operator/inventory', icon: <Battery className="w-5 h-5" />, label: d.inventory, color: 'bg-success/10 text-success' },
+                { to: '/operator/maintenance', icon: <Wrench className="w-5 h-5" />, label: d.maintenance, color: 'bg-warning/10 text-warning' },
               ].map(({ to, icon, label, color }) => (
                 <Link
                   key={to}
@@ -285,30 +288,30 @@ export function OperatorDashboard() {
         {station && (
           <Card>
             <CardHeader>
-              <CardTitle>Station Info</CardTitle>
+              <CardTitle>{d.stationInfo}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
                 <div>
-                  <p className="text-gray-500 text-xs">Station Code</p>
+                  <p className="text-gray-500 text-xs">{d.stationCode}</p>
                   <p className="font-mono font-medium mt-0.5">{station.stationCode ?? '—'}</p>
                 </div>
                 <div>
-                  <p className="text-gray-500 text-xs">Total Slots</p>
+                  <p className="text-gray-500 text-xs">{d.totalSlots}</p>
                   <p className="font-medium mt-0.5">{station.totalSlots}</p>
                 </div>
                 <div>
-                  <p className="text-gray-500 text-xs">Operating Hours</p>
+                  <p className="text-gray-500 text-xs">{d.operatingHours}</p>
                   <p className="font-medium mt-0.5">
                     {station.operatingHours?.open ?? '06:00'} – {station.operatingHours?.close ?? '22:00'}
                   </p>
                 </div>
                 <div>
-                  <p className="text-gray-500 text-xs">Assigned Technicians</p>
+                  <p className="text-gray-500 text-xs">{d.assignedTechnicians}</p>
                   <p className="font-medium mt-0.5">
                     {station.assignedTechnicians?.length
-                      ? station.assignedTechnicians.map((t) => t.fullName).join(', ')
-                      : 'None assigned'}
+                      ? station.assignedTechnicians.map((tech) => tech.fullName).join(', ')
+                      : d.noneAssigned}
                   </p>
                 </div>
               </div>

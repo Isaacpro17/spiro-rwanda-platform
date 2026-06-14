@@ -12,25 +12,8 @@ import {
   MessageSquare, RefreshCw, CheckCircle, XCircle,
 } from 'lucide-react'
 import { api } from '../../lib/api'
+import { useLanguage } from '../../contexts/LanguageContext'
 import type { SupportTicket, FaqItem } from '../../types'
-
-// ── Status badge ──────────────────────────────────────────────────────────────
-
-const STATUS_META: Record<string, { label: string; variant: 'default' | 'success' | 'destructive' }> = {
-  in_progress: { label: 'In Progress', variant: 'default' },
-  open:        { label: 'Open',        variant: 'default' },
-  resolved:    { label: 'Resolved',    variant: 'success' },
-  closed:      { label: 'Closed',      variant: 'destructive' },
-}
-
-// ── Category options ──────────────────────────────────────────────────────────
-
-const CATEGORIES = [
-  { value: 'swap',    label: 'Swap Issue' },
-  { value: 'payment', label: 'Payment Issue' },
-  { value: 'account', label: 'Account Issue' },
-  { value: 'other',   label: 'Other' },
-]
 
 // ── Edit Modal ────────────────────────────────────────────────────────────────
 
@@ -41,6 +24,14 @@ interface EditModalProps {
 }
 
 function EditModal({ ticket, onClose, onSaved }: EditModalProps) {
+  const { t } = useLanguage()
+  const su = t.rider.support
+  const CATEGORIES = [
+    { value: 'swap',    label: su.catSwap },
+    { value: 'payment', label: su.catPayment },
+    { value: 'account', label: su.catAccount },
+    { value: 'other',   label: su.catOther },
+  ]
   const [form, setForm] = useState({
     subject:     ticket.subject,
     description: ticket.description,
@@ -73,7 +64,7 @@ function EditModal({ ticket, onClose, onSaved }: EditModalProps) {
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
         <div className="flex items-center justify-between">
           <h2 id="edit-ticket-title" className="text-lg font-semibold text-gray-900">
-            Edit Ticket <span className="text-sm text-gray-500 font-normal">#{ticket.ticketNumber}</span>
+            {su.editModal.title} <span className="text-sm text-gray-500 font-normal">#{ticket.ticketNumber}</span>
           </h2>
           <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors text-xl" aria-label="Close">×</button>
         </div>
@@ -84,22 +75,22 @@ function EditModal({ ticket, onClose, onSaved }: EditModalProps) {
 
         <form onSubmit={handleSave} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="edit-category">Category</Label>
+            <Label htmlFor="edit-category">{su.editModal.category}</Label>
             <Select id="edit-category" value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}>
               {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
             </Select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="edit-subject">Subject</Label>
+            <Label htmlFor="edit-subject">{su.editModal.subject}</Label>
             <Input id="edit-subject" value={form.subject} onChange={(e) => setForm((f) => ({ ...f, subject: e.target.value }))} required />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="edit-description">Message</Label>
+            <Label htmlFor="edit-description">{su.editModal.message}</Label>
             <Textarea id="edit-description" rows={4} value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} required />
           </div>
           <div className="flex gap-3 pt-2">
-            <Button type="button" variant="outline" className="flex-1" onClick={onClose} disabled={saving}>Cancel</Button>
-            <Button type="submit" className="flex-1" disabled={saving}>{saving ? 'Saving…' : 'Save Changes'}</Button>
+            <Button type="button" variant="outline" className="flex-1" onClick={onClose} disabled={saving}>{su.editModal.cancel}</Button>
+            <Button type="submit" className="flex-1" disabled={saving}>{saving ? su.editModal.saving : su.editModal.saveChanges}</Button>
           </div>
         </form>
       </div>
@@ -132,6 +123,28 @@ function FaqRow({ item }: { item: FaqItem }) {
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export function Support() {
+  const { t } = useLanguage()
+  const su = t.rider.support
+
+  const CATEGORIES = [
+    { value: 'swap',    label: su.catSwap },
+    { value: 'payment', label: su.catPayment },
+    { value: 'account', label: su.catAccount },
+    { value: 'other',   label: su.catOther },
+  ]
+
+  const statusLabel = (status: string) =>
+    status === 'in_progress' ? su.statusInProgress
+    : status === 'open'      ? su.statusOpen
+    : status === 'resolved'  ? su.statusResolved
+    : status === 'closed'    ? su.statusClosed
+    : status
+
+  const statusVariant = (status: string): 'default' | 'success' | 'destructive' =>
+    status === 'resolved' ? 'success'
+    : status === 'closed' ? 'destructive'
+    : 'default'
+
   const [tickets, setTickets] = useState<SupportTicket[]>([])
   const [loadingTickets, setLoadingTickets] = useState(true)
   const [editingTicket, setEditingTicket] = useState<SupportTicket | null>(null)
@@ -191,9 +204,9 @@ export function Support() {
     setSubmitError('')
     setSubmitSuccess('')
 
-    if (!form.category)         { setSubmitError('Please select a category'); return }
-    if (!form.subject.trim())   { setSubmitError('Please enter a subject'); return }
-    if (!form.message.trim())   { setSubmitError('Please enter a message'); return }
+    if (!form.category)         { setSubmitError(su.pleaseSelectCategory); return }
+    if (!form.subject.trim())   { setSubmitError(su.pleaseEnterSubject); return }
+    if (!form.message.trim())   { setSubmitError(su.pleaseEnterMessage); return }
 
     setSubmitting(true)
     try {
@@ -204,7 +217,7 @@ export function Support() {
       })
       setTickets((prev) => [newTicket, ...prev])
       setForm({ category: '', subject: '', message: '' })
-      setSubmitSuccess('Ticket submitted! We will respond shortly.')
+      setSubmitSuccess(su.ticketSuccess)
     } catch (err: any) {
       setSubmitError(err.response?.data?.message || 'Failed to submit ticket. Please try again.')
     } finally {
@@ -227,8 +240,8 @@ export function Support() {
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Support &amp; Help</h1>
-            <p className="text-gray-600 mt-1">Get assistance with your queries</p>
+            <h1 className="text-3xl font-bold text-gray-900">{su.title}</h1>
+            <p className="text-gray-600 mt-1">{su.subtitle}</p>
           </div>
           <button
             onClick={() => { setLoadingTickets(true); fetchTickets() }}
@@ -245,7 +258,7 @@ export function Support() {
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2">
                 <HelpCircle className="w-5 h-5 text-primary" />
-                Frequently Asked Questions
+                {su.faqTitle}
               </CardTitle>
             </div>
           </CardHeader>
@@ -253,7 +266,7 @@ export function Support() {
             <div className="relative mb-4">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
               <Input
-                placeholder="Search FAQ…"
+                placeholder={su.faqSearchPlaceholder}
                 className="pl-9 h-9 text-sm"
                 value={faqQuery}
                 onChange={(e) => setFaqQuery(e.target.value)}
@@ -262,7 +275,7 @@ export function Support() {
             </div>
             {faqs.length === 0 ? (
               <p className="text-sm text-gray-500 text-center py-4">
-                {faqQuery ? `No results for "${faqQuery}"` : 'No FAQ entries available.'}
+                {faqQuery ? su.faqNoResults.replace('{query}', faqQuery) : su.faqEmpty}
               </p>
             ) : (
               <div>
@@ -278,7 +291,7 @@ export function Support() {
           {/* Submit Ticket */}
           <Card>
             <CardHeader>
-              <CardTitle>Submit a Ticket</CardTitle>
+              <CardTitle>{su.submitTicket}</CardTitle>
             </CardHeader>
             <CardContent>
               {submitSuccess && (
@@ -293,35 +306,35 @@ export function Support() {
               )}
               <form className="space-y-4" onSubmit={handleSubmit} noValidate>
                 <div className="space-y-2">
-                  <Label htmlFor="category">Category</Label>
+                  <Label htmlFor="category">{su.category}</Label>
                   <Select id="category" value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))} required>
-                    <option value="">Select category</option>
+                    <option value="">{su.selectCategory}</option>
                     {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="subject">Subject</Label>
+                  <Label htmlFor="subject">{su.subject}</Label>
                   <Input
                     id="subject"
-                    placeholder="Brief description of your issue"
+                    placeholder={su.subjectPlaceholder}
                     value={form.subject}
                     onChange={(e) => setForm((f) => ({ ...f, subject: e.target.value }))}
                     required
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="message">Message</Label>
+                  <Label htmlFor="message">{su.message}</Label>
                   <Textarea
                     id="message"
                     rows={5}
-                    placeholder="Describe your issue in detail…"
+                    placeholder={su.messagePlaceholder}
                     value={form.message}
                     onChange={(e) => setForm((f) => ({ ...f, message: e.target.value }))}
                     required
                   />
                 </div>
                 <Button type="submit" className="w-full" disabled={submitting}>
-                  {submitting ? 'Submitting…' : 'Submit Ticket'}
+                  {submitting ? su.submitting : su.submitBtn}
                 </Button>
               </form>
             </CardContent>
@@ -331,9 +344,13 @@ export function Support() {
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle>My Tickets</CardTitle>
+                <CardTitle>{su.myTickets}</CardTitle>
                 {!loadingTickets && tickets.length > 0 && (
-                  <span className="text-xs text-gray-400">{tickets.length} ticket{tickets.length !== 1 ? 's' : ''}</span>
+                  <span className="text-xs text-gray-400">
+                    {tickets.length !== 1
+                      ? su.tickets.replace('{n}', String(tickets.length))
+                      : su.ticket.replace('{n}', String(tickets.length))}
+                  </span>
                 )}
               </div>
             </CardHeader>
@@ -345,8 +362,8 @@ export function Support() {
               ) : tickets.length === 0 ? (
                 <div className="text-center py-8">
                   <MessageSquare className="w-10 h-10 text-gray-200 mx-auto mb-2" />
-                  <p className="text-sm text-gray-500">No tickets yet.</p>
-                  <p className="text-xs text-gray-400 mt-1">Submit a ticket to get help.</p>
+                  <p className="text-sm text-gray-500">{su.noTickets}</p>
+                  <p className="text-xs text-gray-400 mt-1">{su.noTicketsDesc}</p>
                 </div>
               ) : (
                 <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
@@ -358,8 +375,8 @@ export function Support() {
                           <p className="text-xs text-gray-400 mt-0.5">#{ticket.ticketNumber}</p>
                         </div>
                         <div className="flex flex-col items-end gap-1 shrink-0">
-                          <Badge variant={STATUS_META[ticket.status]?.variant ?? 'default'} className="text-xs">
-                            {STATUS_META[ticket.status]?.label ?? ticket.status}
+                          <Badge variant={statusVariant(ticket.status)} className="text-xs">
+                            {statusLabel(ticket.status)}
                           </Badge>
                           <span className="text-xs text-gray-400 capitalize">{ticket.category}</span>
                         </div>
@@ -367,7 +384,7 @@ export function Support() {
                       <p className="text-sm text-gray-600 line-clamp-2">{ticket.description}</p>
                       {ticket.resolution && (
                         <div className="mt-2 p-2 bg-green-50 border border-green-100 rounded-lg">
-                          <p className="text-xs text-green-700 font-medium">Resolution</p>
+                          <p className="text-xs text-green-700 font-medium">{su.resolution}</p>
                           <p className="text-xs text-green-600 mt-0.5">{ticket.resolution}</p>
                         </div>
                       )}
@@ -379,7 +396,7 @@ export function Support() {
                             onClick={() => setEditingTicket(ticket)}
                             className="text-xs text-primary hover:text-primary font-medium hover:underline transition-colors"
                           >
-                            Edit
+                            {su.editBtn}
                           </button>
                         )}
                       </div>

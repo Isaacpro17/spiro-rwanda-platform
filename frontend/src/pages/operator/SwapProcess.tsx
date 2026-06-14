@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../contexts/AuthContext'
+import { useLanguage } from '../../contexts/LanguageContext'
 import type { StationDetail, BatteryData, QueueStatus, StationReservation } from '../../types'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -45,6 +46,8 @@ function isNearNow(iso: string) {
 // ── Success Panel ─────────────────────────────────────────────────────────────
 
 function SuccessPanel({ result, onReset }: { result: SwapResult; onReset: () => void }) {
+  const { t } = useLanguage()
+  const sw = t.operator.swap
   return (
     <Card className="border-success/40 bg-success/5">
       <CardContent className="pt-8 pb-8 text-center space-y-4">
@@ -52,14 +55,14 @@ function SuccessPanel({ result, onReset }: { result: SwapResult; onReset: () => 
           <CheckCircle2 className="w-8 h-8 text-success" />
         </div>
         <div>
-          <h3 className="text-lg font-bold text-gray-900">Swap Completed!</h3>
-          <p className="text-sm text-gray-600 mt-1">Transaction recorded successfully</p>
+          <h3 className="text-lg font-bold text-gray-900">{sw.successTitle}</h3>
+          <p className="text-sm text-gray-600 mt-1">{sw.successDesc}</p>
         </div>
         <div className="inline-block bg-white border rounded-lg px-4 py-2">
-          <p className="text-xs text-gray-500">Swap Code</p>
+          <p className="text-xs text-gray-500">{sw.swapCode}</p>
           <p className="font-mono font-bold text-primary">{result.swapCode}</p>
         </div>
-        <Button onClick={onReset} className="mt-2">Process Another Swap</Button>
+        <Button onClick={onReset} className="mt-2">{sw.processAnother}</Button>
       </CardContent>
     </Card>
   )
@@ -71,6 +74,8 @@ type RightTab = 'reservations' | 'queue'
 
 export function SwapProcess() {
   const { user } = useAuth()
+  const { t } = useLanguage()
+  const sw = t.operator.swap
   const [station, setStation] = useState<StationDetail | null>(null)
   const [queue, setQueue] = useState<QueueStatus | null>(null)
   const [reservations, setReservations] = useState<StationReservation[]>([])
@@ -172,7 +177,7 @@ export function SwapProcess() {
   }, [])
 
   const lookupRider = async () => {
-    if (!riderPhone.trim()) { setRiderError('Enter a phone number'); return }
+    if (!riderPhone.trim()) { setRiderError(sw.step1Error); return }
     setLookingUpRider(true)
     setRiderError('')
     setRider(null)
@@ -231,9 +236,9 @@ export function SwapProcess() {
   }
 
   const handleSubmit = async () => {
-    if (!rider)                   { setFormError('Look up a rider first'); return }
-    if (!depletedBattery.trim())  { setFormError('Enter the depleted battery serial number'); return }
-    if (!chargedBattery)          { setFormError('Select the charged battery to give out'); return }
+    if (!rider)                   { setFormError(sw.errNoRider); return }
+    if (!depletedBattery.trim())  { setFormError(sw.errNoDepleted); return }
+    if (!chargedBattery)          { setFormError(sw.errNoCharged); return }
     if (!station) return
 
     setSubmitting(true)
@@ -323,8 +328,8 @@ export function SwapProcess() {
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Process Swap</h1>
-            <p className="text-gray-600 mt-1">Complete battery swap transactions for riders</p>
+            <h1 className="text-3xl font-bold text-gray-900">{sw.title}</h1>
+            <p className="text-gray-600 mt-1">{sw.subtitle}</p>
           </div>
           <button
             onClick={initialLoad}
@@ -339,7 +344,7 @@ export function SwapProcess() {
           <div className="flex items-center gap-3 p-4 bg-error/5 border border-error/20 rounded-xl text-sm text-error">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{error}</span>
-            <Button variant="ghost" size="sm" onClick={initialLoad} className="ml-auto text-error">Retry</Button>
+            <Button variant="ghost" size="sm" onClick={initialLoad} className="ml-auto text-error">{sw.retry}</Button>
           </div>
         )}
 
@@ -351,7 +356,7 @@ export function SwapProcess() {
           ) : (
             <Card>
               <CardHeader>
-                <CardTitle>New Swap Transaction</CardTitle>
+                <CardTitle>{sw.newTransaction}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
 
@@ -359,16 +364,16 @@ export function SwapProcess() {
                 {activeReservationId && (
                   <div className="flex items-center gap-2 p-3 bg-primary/5 border border-primary/20 rounded-lg text-sm">
                     <Calendar className="w-4 h-4 text-primary shrink-0" />
-                    <span className="text-primary font-medium">Processing from reservation</span>
+                    <span className="text-primary font-medium">{sw.fromReservation}</span>
                   </div>
                 )}
 
                 {/* Step 1: Rider */}
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium">Step 1 — Identify Rider</Label>
+                  <Label className="text-sm font-medium">{sw.step1}</Label>
                   <div className="flex gap-2">
                     <Input
-                      placeholder="Rider phone number (e.g. +250…)"
+                      placeholder={sw.step1Placeholder}
                       value={riderPhone}
                       onChange={(e) => {
                         setRiderPhone(e.target.value)
@@ -404,21 +409,21 @@ export function SwapProcess() {
 
                 {/* Step 2: Depleted battery */}
                 <div className="space-y-1.5">
-                  <Label className="text-sm font-medium">Step 2 — Depleted Battery (Serial / ID)</Label>
+                  <Label className="text-sm font-medium">{sw.step2}</Label>
                   {depletedBatterySuggestion && (
                     <div className="flex items-center gap-2 p-2.5 bg-warning/5 border border-warning/20 rounded-lg text-xs">
                       <Battery className="w-3.5 h-3.5 text-warning shrink-0" />
                       <span className="text-gray-600">
-                        Last battery issued:{' '}
+                        {sw.lastBatteryHint}{' '}
                         <span className="font-mono font-semibold text-gray-900">
                           {depletedBatterySuggestion.serialNumber}
                         </span>
-                        {' '}({depletedBatterySuggestion.chargeLevel}% when given) — auto-filled below
+                        {' '}({depletedBatterySuggestion.chargeLevel}% {sw.lastBatteryWhen})
                       </span>
                     </div>
                   )}
                   <Input
-                    placeholder="Serial number auto-filled from last swap, or enter manually"
+                    placeholder={sw.step2Placeholder}
                     value={depletedBattery}
                     onChange={(e) => {
                       setDepletedBattery(e.target.value)
@@ -433,21 +438,21 @@ export function SwapProcess() {
 
                 {/* Step 3: Charged battery */}
                 <div className="space-y-1.5">
-                  <Label className="text-sm font-medium">Step 3 — Assign Charged Battery</Label>
+                  <Label className="text-sm font-medium">{sw.step3}</Label>
                   {availableBatteries.length === 0 ? (
                     <p className="text-sm text-warning flex items-center gap-1.5">
                       <AlertCircle className="w-4 h-4" />
-                      No charged batteries available at this station
+                      {sw.noCharged}
                     </p>
                   ) : (
                     <Select
                       value={chargedBattery}
                       onChange={(e) => setChargedBattery(e.target.value)}
                     >
-                      <option value="">Select a charged battery…</option>
+                      <option value="">{sw.selectCharged}</option>
                       {availableBatteries.map((b) => (
                         <option key={b._id} value={b._id}>
-                          {b.serialNumber} — {b.chargeLevel}% charged
+                          {b.serialNumber} — {sw.chargedOption.replace('{n}', String(b.chargeLevel))}
                         </option>
                       ))}
                     </Select>
@@ -467,9 +472,9 @@ export function SwapProcess() {
                   className="w-full"
                 >
                   {submitting ? (
-                    <><Loader2 className="w-4 h-4 animate-spin mr-2" />Processing…</>
+                    <><Loader2 className="w-4 h-4 animate-spin mr-2" />{sw.processing}</>
                   ) : (
-                    <><Zap className="w-4 h-4 mr-2" />Complete Swap</>
+                    <><Zap className="w-4 h-4 mr-2" />{sw.completeSwap}</>
                   )}
                 </Button>
               </CardContent>
@@ -489,7 +494,7 @@ export function SwapProcess() {
                 }`}
               >
                 <Calendar className="w-3.5 h-3.5" />
-                Reservations
+                {sw.tabReservations}
                 {reservationCount > 0 && (
                   <span className={`ml-1 text-xs font-bold px-1.5 py-0.5 rounded-full ${
                     rightTab === 'reservations' ? 'bg-primary/10 text-primary' : 'bg-gray-100 text-gray-600'
@@ -507,7 +512,7 @@ export function SwapProcess() {
                 }`}
               >
                 <Users className="w-3.5 h-3.5" />
-                Live Queue
+                {sw.tabQueue}
                 {queueCount > 0 && (
                   <span className={`ml-1 text-xs font-bold px-1.5 py-0.5 rounded-full ${
                     rightTab === 'queue' ? 'bg-primary/10 text-primary' : 'bg-gray-100 text-gray-600'
@@ -528,8 +533,8 @@ export function SwapProcess() {
                       <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
                         <Calendar className="w-6 h-6 text-gray-400" />
                       </div>
-                      <p className="text-sm text-gray-600">No upcoming reservations</p>
-                      <p className="text-xs text-gray-400">Riders who pre-booked a slot will appear here</p>
+                      <p className="text-sm text-gray-600">{sw.noReservations}</p>
+                      <p className="text-xs text-gray-400">{sw.noReservationsDesc}</p>
                     </div>
                   ) : (
                     <div className="space-y-2">
@@ -576,7 +581,7 @@ export function SwapProcess() {
                                     </span>
                                   </div>
                                   <p className="text-xs text-gray-400 font-mono mt-0.5">
-                                    Code: {res.cancellationCode}
+                                    {sw.resCode} {res.cancellationCode}
                                   </p>
                                 </div>
                               </div>
@@ -587,9 +592,9 @@ export function SwapProcess() {
                                 className="shrink-0 text-xs"
                               >
                                 {isActive ? (
-                                  'Selected'
+                                  sw.resSelected
                                 ) : (
-                                  <>Process <ChevronRight className="w-3 h-3 ml-0.5" /></>
+                                  <>{sw.resProcess} <ChevronRight className="w-3 h-3 ml-0.5" /></>
                                 )}
                               </Button>
                             </div>
@@ -606,7 +611,7 @@ export function SwapProcess() {
                 <>
                   <div className="flex items-center justify-between mb-3">
                     <p className="text-xs text-gray-500">
-                      {queueCount} waiting · ~{queue?.estimatedWait ?? 0} min est.
+                      {queueCount} {sw.queueWaiting} · ~{queue?.estimatedWait ?? 0} {sw.queueEstMin}
                     </p>
                     <button
                       onClick={() => station && loadQueue(station._id)}
@@ -622,7 +627,7 @@ export function SwapProcess() {
                       <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
                         <Users className="w-6 h-6 text-gray-400" />
                       </div>
-                      <p className="text-sm text-gray-600">No riders in queue</p>
+                      <p className="text-sm text-gray-600">{sw.queueEmpty}</p>
                     </div>
                   ) : (
                     <div className="space-y-2">
@@ -636,7 +641,7 @@ export function SwapProcess() {
                               <span className="text-xs font-bold text-primary">{idx + 1}</span>
                             </div>
                             <div>
-                              <p className="text-sm font-medium text-gray-700">Rider #{idx + 1}</p>
+                              <p className="text-sm font-medium text-gray-700">{sw.queueRider}{idx + 1}</p>
                               <p className="text-xs text-gray-400 font-mono">…{riderId.slice(-8)}</p>
                             </div>
                           </div>
@@ -647,7 +652,7 @@ export function SwapProcess() {
                               onClick={() => handleProcessQueueRider(riderId)}
                               className="text-xs"
                             >
-                              Select
+                              {sw.queueSelect}
                             </Button>
                             <button
                               onClick={() => handleRemoveFromQueue(riderId)}
@@ -669,10 +674,10 @@ export function SwapProcess() {
                 <div className="mt-4 pt-4 border-t flex items-center justify-between text-sm">
                   <div className="flex items-center gap-1.5 text-gray-600">
                     <Battery className="w-4 h-4 text-success" />
-                    <span>{station.availableBatteries} available</span>
+                    <span>{station.availableBatteries} {t.operator.dashboard.available}</span>
                   </div>
                   <Badge variant={station.availableBatteries > station.lowInventoryThreshold ? 'success' : 'warning'}>
-                    {station.availableBatteries > station.lowInventoryThreshold ? 'Good Stock' : 'Low Stock'}
+                    {station.availableBatteries > station.lowInventoryThreshold ? sw.goodStock : sw.lowStock}
                   </Badge>
                 </div>
               )}

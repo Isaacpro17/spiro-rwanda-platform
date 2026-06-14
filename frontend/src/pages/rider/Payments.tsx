@@ -11,6 +11,7 @@ import {
   Download, XCircle,
 } from 'lucide-react'
 import { api } from '../../lib/api'
+import { useLanguage } from '../../contexts/LanguageContext'
 import type { PaymentRecord, RiderProfileData } from '../../types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -62,6 +63,19 @@ function TxSkeleton() {
 // ── Page Component ─────────────────────────────────────────────────────────────
 
 export function Payments() {
+  const { t } = useLanguage()
+  const p = t.rider.payments
+
+  const txTypeLabel = (type: string) =>
+    type === 'wallet_topup' ? p.typeTopup
+    : type === 'subscription' ? p.typeSubscription
+    : p.typeSwap
+
+  const txStatusLabel = (status: string) =>
+    status === 'success' ? p.statusSuccess
+    : status === 'failed' ? p.statusFailed
+    : p.statusPending
+
   // ── Wallet balance ──
   const [walletBalance, setWalletBalance] = useState<number | null>(null)
   const [balanceLoading, setBalanceLoading] = useState(true)
@@ -187,8 +201,8 @@ export function Payments() {
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Payments & Wallet</h1>
-            <p className="text-gray-600 mt-1">Manage your wallet and view transactions</p>
+            <h1 className="text-3xl font-bold text-gray-900">{p.title}</h1>
+            <p className="text-gray-600 mt-1">{p.subtitle}</p>
           </div>
           <button
             onClick={refresh}
@@ -211,7 +225,7 @@ export function Payments() {
                   <div className="w-14 h-14 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
                     <CreditCard className="w-7 h-7 text-primary" />
                   </div>
-                  <p className="text-sm font-medium text-gray-600">Current Balance</p>
+                  <p className="text-sm font-medium text-gray-600">{p.currentBalance}</p>
                   {balanceLoading ? (
                     <div className="h-10 w-40 bg-gray-200 rounded animate-pulse mx-auto" />
                   ) : (
@@ -219,7 +233,7 @@ export function Payments() {
                       {walletBalance !== null ? formatRwf(walletBalance) : '—'}
                     </p>
                   )}
-                  <p className="text-xs text-gray-400">Rwandan Franc</p>
+                  <p className="text-xs text-gray-400">{p.rwandanFranc}</p>
                 </div>
               </CardContent>
             </Card>
@@ -227,7 +241,7 @@ export function Payments() {
             {/* Top-up Form */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Add Funds</CardTitle>
+                <CardTitle className="text-base">{p.addFunds}</CardTitle>
               </CardHeader>
               <CardContent>
                 {topupSuccess && (
@@ -245,10 +259,10 @@ export function Payments() {
 
                 <form onSubmit={handleTopup} className="space-y-4" noValidate>
                   <div className="space-y-2">
-                    <Label>Amount (RWF)</Label>
+                    <Label>{p.amountLabel}</Label>
                     <Input
                       type="number"
-                      placeholder="Min. RWF 100"
+                      placeholder={p.amountPlaceholder}
                       min={100}
                       step={100}
                       value={topupForm.amount}
@@ -274,17 +288,17 @@ export function Payments() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Phone Number</Label>
+                    <Label>{p.phoneLabel}</Label>
                     <Input
                       type="tel"
-                      placeholder="e.g. 0781234567"
+                      placeholder={p.phonePlaceholder}
                       value={topupForm.phone}
                       onChange={(e) => setTopupForm((f) => ({ ...f, phone: e.target.value }))}
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Payment Method</Label>
+                    <Label>{p.paymentMethod}</Label>
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         type="button"
@@ -315,9 +329,9 @@ export function Payments() {
 
                   <Button type="submit" className="w-full" disabled={isTopping}>
                     {isTopping ? (
-                      <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Processing…</>
+                      <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{p.processing}</>
                     ) : (
-                      <><TrendingUp className="w-4 h-4 mr-2" />Add Funds</>
+                      <><TrendingUp className="w-4 h-4 mr-2" />{p.addFundsBtn}</>
                     )}
                   </Button>
                 </form>
@@ -329,9 +343,13 @@ export function Payments() {
           <div className="lg:col-span-2">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-3">
-                <CardTitle>Transaction History</CardTitle>
+                <CardTitle>{p.transactionHistory}</CardTitle>
                 {!historyLoading && total > 0 && (
-                  <span className="text-xs text-gray-400 font-normal">{total} transaction{total !== 1 ? 's' : ''}</span>
+                  <span className="text-xs text-gray-400 font-normal">
+                    {total !== 1
+                      ? p.transactions.replace('{n}', String(total))
+                      : p.transaction.replace('{n}', String(total))}
+                  </span>
                 )}
               </CardHeader>
               <CardContent className="p-0">
@@ -341,7 +359,7 @@ export function Payments() {
                     <AlertCircle className="w-4 h-4 shrink-0" />
                     <span>{historyError}</span>
                     <Button variant="ghost" size="sm" onClick={() => fetchHistory(page)} className="ml-auto text-error">
-                      Retry
+                      {p.retry}
                     </Button>
                   </div>
                 )}
@@ -356,8 +374,8 @@ export function Payments() {
                       <CreditCard className="w-7 h-7 text-gray-400" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-700">No transactions yet</p>
-                      <p className="text-xs text-gray-500 mt-1">Your payment history will appear here</p>
+                      <p className="text-sm font-medium text-gray-700">{p.noTransactions}</p>
+                      <p className="text-xs text-gray-500 mt-1">{p.noTransactionsDesc}</p>
                     </div>
                   </div>
                 ) : (
@@ -379,7 +397,7 @@ export function Payments() {
                           </div>
                           <div>
                             <p className="text-sm font-medium text-gray-900">
-                              {typeLabel(tx.type)} — {providerLabel(tx.provider)}
+                              {txTypeLabel(tx.type)} — {providerLabel(tx.provider)}
                             </p>
                             <p className="text-xs text-gray-500 mt-0.5">
                               {formatDate(tx.createdAt)} · {tx.transactionId}
@@ -392,7 +410,7 @@ export function Payments() {
                               {tx.type === 'wallet_topup' ? '+' : '-'}{formatRwf(tx.amountRwf)}
                             </p>
                             <Badge variant={statusVariant(tx.status)} className="text-xs mt-0.5">
-                              {tx.status === 'success' ? 'Success' : tx.status === 'failed' ? 'Failed' : 'Pending'}
+                              {txStatusLabel(tx.status)}
                             </Badge>
                           </div>
                           {tx.status === 'success' && (
@@ -419,7 +437,7 @@ export function Payments() {
                 {/* Pagination */}
                 {totalPages > 1 && (
                   <div className="flex items-center justify-between px-6 pt-4 pb-4 border-t">
-                    <span className="text-xs text-gray-500">Page {page} of {totalPages}</span>
+                    <span className="text-xs text-gray-500">{p.pageOf.replace('{n}', String(page)).replace('{total}', String(totalPages))}</span>
                     <div className="flex gap-2">
                       <Button
                         variant="outline"

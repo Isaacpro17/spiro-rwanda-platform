@@ -1,46 +1,12 @@
-import { useEffect, useRef } from 'react'
+import { type RefObject } from 'react'
 import { Link } from 'react-router-dom'
 import { Navbar } from '../../components/layout/Navbar'
 import { Footer } from '../../components/layout/Footer'
 import { Button } from '../../components/ui/button'
+import { Reveal } from '../../components/ui/Reveal'
 import { Battery, MapPin, Zap, Shield, Clock, TrendingUp, ArrowRight } from 'lucide-react'
 import { useCountUp } from '../../hooks/useCountUp'
-
-/* ── Scroll-reveal wrapper ─────────────────────────────────────────────────── */
-function Reveal({
-  children,
-  className = '',
-  delay = 0,
-}: {
-  children: React.ReactNode
-  className?: string
-  delay?: number
-}) {
-  const ref = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          el.style.transitionDelay = `${delay}ms`
-          el.classList.add('is-visible')
-          observer.unobserve(el)
-        }
-      },
-      { threshold: 0.12 }
-    )
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [delay])
-
-  return (
-    <div ref={ref} className={`scroll-hidden ${className}`}>
-      {children}
-    </div>
-  )
-}
+import { useLanguage } from '../../contexts/LanguageContext'
 
 /* ── Animated Stat ─────────────────────────────────────────────────────────── */
 function StatCard({ end, suffix, label }: { end: number; suffix: string; label: string }) {
@@ -48,7 +14,7 @@ function StatCard({ end, suffix, label }: { end: number; suffix: string; label: 
   return (
     <div className="text-center group">
       <div
-        ref={ref as React.RefObject<HTMLDivElement>}
+        ref={ref as RefObject<HTMLDivElement>}
         className="text-4xl lg:text-5xl font-bold text-primary-600 mb-2 tabular-nums"
       >
         {display}
@@ -58,39 +24,70 @@ function StatCard({ end, suffix, label }: { end: number; suffix: string; label: 
   )
 }
 
+/* ── Static metadata (icons / colours — never translated) ── */
+const stepMeta = [
+  { icon: MapPin, step: '01' },
+  { icon: Battery, step: '02' },
+  { icon: Zap, step: '03' },
+]
+
+const benefitMeta = [
+  { icon: Clock,      color: 'text-blue-600',   bg: 'bg-blue-50'   },
+  { icon: Shield,     color: 'text-green-600',  bg: 'bg-green-50'  },
+  { icon: TrendingUp, color: 'text-purple-600', bg: 'bg-purple-50' },
+  { icon: Zap,        color: 'text-yellow-600', bg: 'bg-yellow-50' },
+]
+
 /* ── LandingPage ───────────────────────────────────────────────────────────── */
 export function LandingPage() {
+  const { t } = useLanguage()
+  const h = t.landing.hero
+
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
 
       {/* ── Hero Section ─────────────────────────────────────────────────── */}
-      <section className="relative bg-gradient-to-br from-primary via-primary-600 to-primary-800 text-white overflow-hidden min-h-[92vh] flex items-center">
-        {/* Background pattern */}
-        <div className="absolute inset-0 bg-black/20" />
+      <section className="relative text-white overflow-hidden min-h-[92vh] flex items-center">
+
+        {/* Layer 0 – Full-bleed background: motorcycle + station photo */}
+        <img
+          src="/spiro-motorcycle.png"
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 w-full h-full object-cover object-center"
+          loading="eager"
+        />
+
+        {/* Layer 1 – Directional blue overlay */}
+        <div className="absolute inset-0 bg-gradient-to-r from-primary/[0.92] via-primary/[0.78] to-primary/[0.48]" />
+        {/* Layer 2 – Uniform darkening */}
+        <div className="absolute inset-0 bg-black/[0.12]" />
+        {/* Layer 3 – Decorative radial accents */}
         <div
-          className="absolute inset-0 opacity-10"
+          className="absolute inset-0 opacity-[0.08] pointer-events-none"
           style={{
             backgroundImage:
-              'radial-gradient(circle at 25% 25%, #FFE500 0%, transparent 50%), radial-gradient(circle at 75% 75%, #4757C1 0%, transparent 50%)',
+              'radial-gradient(circle at 15% 30%, #FFE500 0%, transparent 45%), radial-gradient(circle at 82% 72%, #4757C1 0%, transparent 45%)',
           }}
         />
 
         <div className="relative w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 lg:py-32">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
+
             {/* Left – Text */}
             <div className="space-y-8">
               <div className="animate-fade-up">
                 <span className="inline-flex items-center px-4 py-1.5 rounded-full bg-accent-500/20 border border-accent-500/30 text-accent-300 text-sm font-semibold mb-6">
                   <Zap className="w-4 h-4 mr-2" />
-                  Rwanda's #1 Electric Mobility Platform
+                  {h.badge}
                 </span>
               </div>
 
               <h1 className="text-5xl lg:text-7xl font-bold leading-tight animate-fade-up delay-100">
-                Ride Easy,{' '}
+                {h.title1}{' '}
                 <span className="text-accent-500 relative">
-                  Ride Safe
+                  {h.title2}
                   <svg
                     className="absolute -bottom-2 left-0 w-full"
                     viewBox="0 0 300 12"
@@ -110,8 +107,7 @@ export function LandingPage() {
               </h1>
 
               <p className="text-lg lg:text-xl text-gray-200 leading-relaxed animate-fade-up delay-200 max-w-lg">
-                At Spiro, we enhance livelihoods through sustainable energy — leading Africa's
-                large-scale electrification of mobility, one swap at a time.
+                {h.subtitle}
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4 animate-fade-up delay-300">
@@ -121,7 +117,7 @@ export function LandingPage() {
                     variant="accent"
                     className="w-full sm:w-auto text-primary font-bold px-8 shadow-lg shadow-accent-500/30 hover:scale-105 transition-transform"
                   >
-                    Get Started <ArrowRight className="ml-2 w-5 h-5" />
+                    {h.cta1} <ArrowRight className="ml-2 w-5 h-5" />
                   </Button>
                 </Link>
                 <Link to="/about">
@@ -130,7 +126,7 @@ export function LandingPage() {
                     variant="outline"
                     className="w-full sm:w-auto border-white/60 text-white hover:bg-white hover:text-primary backdrop-blur-sm"
                   >
-                    Learn More
+                    {h.cta2}
                   </Button>
                 </Link>
               </div>
@@ -139,78 +135,33 @@ export function LandingPage() {
               <div className="flex items-center gap-6 pt-4 animate-fade-up delay-400">
                 <div className="flex items-center gap-2 text-gray-300 text-sm">
                   <Shield className="w-4 h-4 text-accent-400" />
-                  Certified Batteries
+                  {h.trust1}
                 </div>
                 <div className="flex items-center gap-2 text-gray-300 text-sm">
                   <Clock className="w-4 h-4 text-accent-400" />
-                  Swap in &lt; 2 min
+                  {h.trust2}
                 </div>
                 <div className="flex items-center gap-2 text-gray-300 text-sm">
                   <MapPin className="w-4 h-4 text-accent-400" />
-                  50+ Stations
+                  {h.trust3}
                 </div>
               </div>
             </div>
 
-            {/* Right – Hero Image: Circular Medallion */}
-            <div className="hidden lg:flex items-center justify-center animate-fade-right delay-300">
-              <div className="relative" style={{ width: 500, height: 500 }}>
-
-                {/* Layer 1 – Diffuse outer glow */}
-                <div className="absolute inset-0 rounded-full blur-[72px] scale-125"
-                  style={{ background: 'radial-gradient(circle, rgba(255,229,0,0.25) 0%, rgba(71,87,193,0.3) 60%, transparent 100%)' }}
-                />
-
-                {/* Layer 2 – Slow-spinning dashed orbit ring */}
-                <div
-                  className="absolute rounded-full border-2 border-dashed border-white/20 animate-spin"
-                  style={{ inset: -24, animationDuration: '24s' }}
-                />
-
-                {/* Layer 3 – Static accent ring */}
-                <div
-                  className="absolute rounded-full border border-accent-500/40"
-                  style={{ inset: -8 }}
-                />
-
-                {/* Layer 4 – Main image clipped to circle */}
-                <div
-                  className="absolute inset-0 rounded-full overflow-hidden ring-4 ring-white/10"
-                  style={{ boxShadow: '0 12px 80px rgba(71,87,193,0.55), 0 0 0 1px rgba(255,255,255,0.08)' }}
-                >
-                  <img
-                    src="/spiro-motorcycle.png"
-                    alt="Spiro electric motorcycle at Smart Energy Network station"
-                    className="w-full h-full object-cover object-center scale-105"
-                    loading="eager"
-                  />
-                  {/* Inner vignette for depth */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-primary/50 via-transparent to-transparent pointer-events-none" />
+            {/* Right – floating badge over visible image area */}
+            <div className="hidden lg:flex items-end justify-start pb-8 animate-fade-right delay-300">
+              <div className="bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 p-3 flex items-center gap-3 shadow-2xl" style={{ minWidth: 220 }}>
+                <div className="w-9 h-9 bg-accent-500 rounded-full flex items-center justify-center shrink-0">
+                  <Battery className="w-4 h-4 text-primary" />
                 </div>
-
-                {/* Floating battery badge – sits outside the clip, overlapping bottom */}
-                <div
-                  className="absolute bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 p-3 flex items-center gap-3 shadow-2xl"
-                  style={{ bottom: -20, left: '50%', transform: 'translateX(-50%)', minWidth: 220 }}
-                >
-                  <div className="w-9 h-9 bg-accent-500 rounded-full flex items-center justify-center shrink-0">
-                    <Battery className="w-4 h-4 text-primary" />
-                  </div>
-                  <div>
-                    <div className="text-white font-semibold text-sm">Battery Swapped!</div>
-                    <div className="text-gray-300 text-xs">Fully charged — ready to ride</div>
-                  </div>
-                  <div className="ml-auto text-accent-400 font-bold text-sm">1:47</div>
+                <div>
+                  <div className="text-white font-semibold text-sm">{h.badgeSwapped}</div>
+                  <div className="text-gray-300 text-xs">{h.badgeReady}</div>
                 </div>
-
-                {/* Decorative pulsing accent dots */}
-                <div className="absolute top-8 right-6 w-4 h-4 bg-accent-500 rounded-full animate-pulse opacity-90" />
-                <div className="absolute top-20 right-0 w-2.5 h-2.5 bg-white/50 rounded-full animate-pulse" style={{ animationDelay: '0.5s' }} />
-                <div className="absolute bottom-32 left-0 w-3 h-3 bg-accent-400/60 rounded-full animate-pulse" style={{ animationDelay: '0.3s' }} />
-                <div className="absolute top-4 left-24 w-2 h-2 bg-white/30 rounded-full animate-pulse" style={{ animationDelay: '0.8s' }} />
-
+                <div className="ml-auto pl-4 text-accent-400 font-bold text-sm">1:47</div>
               </div>
             </div>
+
           </div>
         </div>
 
@@ -226,10 +177,10 @@ export function LandingPage() {
       <section className="py-20 bg-white border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
-            <StatCard end={50} suffix="+" label="Charging Stations" />
-            <StatCard end={1200} suffix="+" label="Active Riders" />
-            <StatCard end={45000} suffix="+" label="Monthly Swaps" />
-            <StatCard end={98} suffix="%" label="Satisfaction Rate" />
+            <StatCard end={50}    suffix="+" label={t.landing.stats.stations}     />
+            <StatCard end={1200}  suffix="+" label={t.landing.stats.riders}       />
+            <StatCard end={45000} suffix="+" label={t.landing.stats.swaps}        />
+            <StatCard end={98}    suffix="%" label={t.landing.stats.satisfaction} />
           </div>
         </div>
       </section>
@@ -238,49 +189,34 @@ export function LandingPage() {
       <section className="py-24 bg-gray-50 overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <Reveal className="text-center mb-16">
-            <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">How It Works</h2>
+            <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">
+              {t.landing.howItWorks.title}
+            </h2>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Get started with Spiro in three simple steps
+              {t.landing.howItWorks.subtitle}
             </p>
           </Reveal>
 
           <div className="grid md:grid-cols-3 gap-8 relative">
-            {/* Connector line */}
             <div className="hidden md:block absolute top-12 left-1/3 right-1/3 h-0.5 bg-gradient-to-r from-primary/30 via-accent-400 to-primary/30" />
 
-            {[
-              {
-                icon: MapPin,
-                title: 'Find a Station',
-                desc: 'Locate the nearest battery swap station using our real-time map with live availability.',
-                step: '01',
-              },
-              {
-                icon: Battery,
-                title: 'Swap Your Battery',
-                desc: 'Exchange your depleted battery for a fully charged one in under 2 minutes.',
-                step: '02',
-              },
-              {
-                icon: Zap,
-                title: 'Ride & Earn',
-                desc: 'Get back on the road instantly and maximize your earning potential with zero downtime.',
-                step: '03',
-              },
-            ].map((item, i) => (
-              <Reveal key={item.step} delay={i * 150}>
-                <div className="bg-white p-8 rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border border-gray-100 group relative">
-                  <span className="absolute top-6 right-6 text-5xl font-black text-gray-100 group-hover:text-primary-100 transition-colors">
-                    {item.step}
-                  </span>
-                  <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-primary group-hover:scale-110 transition-all duration-300">
-                    <item.icon className="w-8 h-8 text-primary group-hover:text-white transition-colors" />
+            {t.landing.howItWorks.steps.map((step, i) => {
+              const meta = stepMeta[i]
+              return (
+                <Reveal key={meta.step} delay={i * 150}>
+                  <div className="bg-white p-8 rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border border-gray-100 group relative">
+                    <span className="absolute top-6 right-6 text-5xl font-black text-gray-100 group-hover:text-primary-100 transition-colors">
+                      {meta.step}
+                    </span>
+                    <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-primary group-hover:scale-110 transition-all duration-300">
+                      <meta.icon className="w-8 h-8 text-primary group-hover:text-white transition-colors" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-gray-900 mb-3">{step.title}</h3>
+                    <p className="text-gray-600 leading-relaxed">{step.desc}</p>
                   </div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-3">{item.title}</h3>
-                  <p className="text-gray-600 leading-relaxed">{item.desc}</p>
-                </div>
-              </Reveal>
-            ))}
+                </Reveal>
+              )
+            })}
           </div>
         </div>
       </section>
@@ -289,55 +225,29 @@ export function LandingPage() {
       <section className="py-24 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <Reveal className="text-center mb-16">
-            <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">Why Choose Spiro?</h2>
+            <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">
+              {t.landing.benefits.title}
+            </h2>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Experience the future of sustainable mobility
+              {t.landing.benefits.subtitle}
             </p>
           </Reveal>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[
-              {
-                icon: Clock,
-                title: 'Fast Swaps',
-                desc: 'Complete battery swaps in under 2 minutes',
-                color: 'text-blue-600',
-                bg: 'bg-blue-50',
-              },
-              {
-                icon: Shield,
-                title: 'Safe & Reliable',
-                desc: 'High-quality batteries with full safety guarantees',
-                color: 'text-green-600',
-                bg: 'bg-green-50',
-              },
-              {
-                icon: TrendingUp,
-                title: 'Cost Effective',
-                desc: 'Save up to 60% on fuel costs vs petrol bikes',
-                color: 'text-purple-600',
-                bg: 'bg-purple-50',
-              },
-              {
-                icon: Zap,
-                title: 'Eco-Friendly',
-                desc: 'Zero emissions for a cleaner environment',
-                color: 'text-yellow-600',
-                bg: 'bg-yellow-50',
-              },
-            ].map((item, i) => (
-              <Reveal key={item.title} delay={i * 100}>
-                <div className="p-6 border border-gray-200 rounded-2xl hover:border-primary hover:shadow-lg transition-all duration-300 hover:-translate-y-1 group cursor-default">
-                  <div
-                    className={`w-12 h-12 ${item.bg} rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}
-                  >
-                    <item.icon className={`w-6 h-6 ${item.color}`} />
+            {t.landing.benefits.items.map((item, i) => {
+              const meta = benefitMeta[i]
+              return (
+                <Reveal key={item.title} delay={i * 100}>
+                  <div className="p-6 border border-gray-200 rounded-2xl hover:border-primary hover:shadow-lg transition-all duration-300 hover:-translate-y-1 group cursor-default">
+                    <div className={`w-12 h-12 ${meta.bg} rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
+                      <meta.icon className={`w-6 h-6 ${meta.color}`} />
+                    </div>
+                    <h3 className="font-semibold text-gray-900 mb-2">{item.title}</h3>
+                    <p className="text-sm text-gray-600 leading-relaxed">{item.desc}</p>
                   </div>
-                  <h3 className="font-semibold text-gray-900 mb-2">{item.title}</h3>
-                  <p className="text-sm text-gray-600 leading-relaxed">{item.desc}</p>
-                </div>
-              </Reveal>
-            ))}
+                </Reveal>
+              )
+            })}
           </div>
         </div>
       </section>
@@ -346,24 +256,19 @@ export function LandingPage() {
       <section className="py-24 bg-gradient-to-br from-primary via-primary-600 to-primary-800 text-white relative overflow-hidden">
         <div
           className="absolute inset-0 opacity-10"
-          style={{
-            backgroundImage: 'radial-gradient(circle at 70% 50%, #FFE500 0%, transparent 60%)',
-          }}
+          style={{ backgroundImage: 'radial-gradient(circle at 70% 50%, #FFE500 0%, transparent 60%)' }}
         />
         <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <Reveal>
-            <h2 className="text-3xl lg:text-5xl font-bold mb-6">Ready to Go Electric?</h2>
-            <p className="text-lg text-gray-200 mb-10 max-w-2xl mx-auto">
-              Join thousands of riders who have already made the switch to sustainable, affordable
-              mobility across Rwanda.
-            </p>
+            <h2 className="text-3xl lg:text-5xl font-bold mb-6">{t.landing.cta.title}</h2>
+            <p className="text-lg text-gray-200 mb-10 max-w-2xl mx-auto">{t.landing.cta.subtitle}</p>
             <Link to="/login">
               <Button
                 size="lg"
                 variant="accent"
                 className="text-primary font-bold px-10 shadow-xl shadow-accent-500/30 hover:scale-105 transition-transform"
               >
-                Get Started Today <ArrowRight className="ml-2 w-5 h-5" />
+                {t.landing.cta.button} <ArrowRight className="ml-2 w-5 h-5" />
               </Button>
             </Link>
           </Reveal>

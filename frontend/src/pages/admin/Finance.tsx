@@ -12,6 +12,7 @@ import {
   Clock, RotateCcw, DollarSign,
 } from 'lucide-react'
 import { api } from '../../lib/api'
+import { useLanguage } from '../../contexts/LanguageContext'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -68,12 +69,14 @@ function providerLabel(p: string) {
 function RefundModal({
   tx, onClose, onSuccess,
 }: { tx: Transaction; onClose: () => void; onSuccess: () => void }) {
+  const { t } = useLanguage()
+  const rm = t.admin.finance.refundModal
   const [reason, setReason] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
   const handleRefund = async () => {
-    if (!reason.trim()) { setError('Reason is required'); return }
+    if (!reason.trim()) { setError(rm.errReason); return }
     setSaving(true)
     setError('')
     try {
@@ -91,14 +94,14 @@ function RefundModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-semibold">Process Refund</h2>
+          <h2 className="text-lg font-semibold">{rm.title}</h2>
           <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100">
             <X className="w-4 h-4" />
           </button>
         </div>
 
         <div className="p-3 bg-gray-50 rounded-xl mb-4">
-          <p className="text-xs text-gray-500 mb-1">Transaction</p>
+          <p className="text-xs text-gray-500 mb-1">{rm.txLabel}</p>
           <p className="text-sm font-mono font-medium text-gray-900">{tx.transactionId}</p>
           <p className="text-sm font-semibold text-gray-900 mt-1">{fmtRwf(tx.amountRwf)}</p>
           <p className="text-xs text-gray-500">{tx.riderId?.fullName ?? tx.senderPhone}</p>
@@ -106,21 +109,21 @@ function RefundModal({
 
         <div className="space-y-3">
           <div className="space-y-1">
-            <Label className="text-xs">Refund Reason *</Label>
+            <Label className="text-xs">{rm.reasonLabel}</Label>
             <textarea
               rows={3}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="Explain why this transaction is being refunded…"
+              placeholder={rm.reasonPlaceholder}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
             />
           </div>
           {error && <p className="text-xs text-error flex items-center gap-1"><AlertCircle className="w-3.5 h-3.5" />{error}</p>}
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={onClose} className="flex-1">Cancel</Button>
+            <Button variant="outline" size="sm" onClick={onClose} className="flex-1">{rm.cancel}</Button>
             <Button size="sm" onClick={handleRefund} disabled={saving} className="flex-1 bg-warning hover:bg-warning/90 text-white">
               {saving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <RotateCcw className="w-4 h-4 mr-1" />}
-              Refund
+              {rm.refund}
             </Button>
           </div>
         </div>
@@ -134,6 +137,8 @@ function RefundModal({
 const PAGE_SIZE = 25
 
 export function Finance() {
+  const { t } = useLanguage()
+  const f = t.admin.finance
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [stats, setStats] = useState<TxStats | null>(null)
   const [total, setTotal] = useState(0)
@@ -186,8 +191,8 @@ export function Finance() {
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Finance</h1>
-            <p className="text-gray-600 mt-1">Transaction history, revenue tracking, and refunds</p>
+            <h1 className="text-3xl font-bold text-gray-900">{f.title}</h1>
+            <p className="text-gray-600 mt-1">{f.subtitle}</p>
           </div>
           <button onClick={() => loadData(page)} className="p-2 rounded-lg text-gray-400 hover:text-primary hover:bg-primary/5 transition-colors">
             <RefreshCw className="w-4 h-4" />
@@ -197,7 +202,7 @@ export function Finance() {
         {error && (
           <div className="flex items-center gap-3 p-4 bg-error/5 border border-error/20 rounded-xl text-sm text-error">
             <AlertCircle className="w-4 h-4 shrink-0" /><span>{error}</span>
-            <Button variant="ghost" size="sm" onClick={() => loadData(page)} className="ml-auto text-error">Retry</Button>
+            <Button variant="ghost" size="sm" onClick={() => loadData(page)} className="ml-auto text-error">{f.retry}</Button>
           </div>
         )}
 
@@ -205,31 +210,19 @@ export function Finance() {
         {stats && (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              {
-                label: 'Total Revenue', value: fmtRwf(stats.totalRevenue),
-                icon: <TrendingUp className="w-5 h-5" />, color: 'text-success',
-              },
-              {
-                label: "Today's Revenue", value: fmtRwf(stats.todayRevenue),
-                icon: <DollarSign className="w-5 h-5" />, color: 'text-primary',
-              },
-              {
-                label: 'Successful Txns', value: (stats.byStatus.success ?? 0).toLocaleString(),
-                icon: <CheckCircle2 className="w-5 h-5" />, color: 'text-success',
-              },
-              {
-                label: 'Failed Txns', value: (stats.byStatus.failed ?? 0).toLocaleString(),
-                icon: <XCircle className="w-5 h-5" />, color: 'text-error',
-              },
-            ].map((s) => (
-              <Card key={s.label}>
+              { label: f.statTotalRevenue, value: fmtRwf(stats.totalRevenue), icon: <TrendingUp className="w-5 h-5" />, color: 'text-success' },
+              { label: f.statTodayRevenue, value: fmtRwf(stats.todayRevenue), icon: <DollarSign className="w-5 h-5" />, color: 'text-primary' },
+              { label: f.statSuccess, value: (stats.byStatus.success ?? 0).toLocaleString(), icon: <CheckCircle2 className="w-5 h-5" />, color: 'text-success' },
+              { label: f.statFailed, value: (stats.byStatus.failed ?? 0).toLocaleString(), icon: <XCircle className="w-5 h-5" />, color: 'text-error' },
+            ].map((stat) => (
+              <Card key={stat.label}>
                 <CardContent className="pt-5 pb-5">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs text-gray-500">{s.label}</p>
-                      <p className={`text-xl font-bold mt-1 ${s.color}`}>{s.value}</p>
+                      <p className="text-xs text-gray-500">{stat.label}</p>
+                      <p className={`text-xl font-bold mt-1 ${stat.color}`}>{stat.value}</p>
                     </div>
-                    <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-500">{s.icon}</div>
+                    <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-500">{stat.icon}</div>
                   </div>
                 </CardContent>
               </Card>
@@ -247,7 +240,7 @@ export function Finance() {
                     <p className="text-sm font-medium text-gray-700">{providerLabel(provider)}</p>
                     <div className="text-right">
                       <p className="text-lg font-bold text-gray-900">{count.toLocaleString()}</p>
-                      <p className="text-xs text-gray-400">transactions</p>
+                      <p className="text-xs text-gray-400">{f.transactions}</p>
                     </div>
                   </div>
                   <div className="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden">
@@ -268,34 +261,34 @@ export function Finance() {
             <div className="flex flex-wrap gap-3">
               <div className="relative flex-1 min-w-48">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <Input className="pl-9" placeholder="Search by transaction ID or phone…" value={search} onChange={(e) => setSearch(e.target.value)} />
+                <Input className="pl-9" placeholder={f.searchPlaceholder} value={search} onChange={(e) => setSearch(e.target.value)} />
               </div>
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
                 className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
               >
-                <option value="">All Status</option>
-                <option value="success">Success</option>
-                <option value="failed">Failed</option>
-                <option value="pending">Pending</option>
+                <option value="">{f.allStatus}</option>
+                <option value="success">{f.statusSuccess}</option>
+                <option value="failed">{f.statusFailed}</option>
+                <option value="pending">{f.statusPending}</option>
               </select>
               <select
                 value={providerFilter}
                 onChange={(e) => setProviderFilter(e.target.value)}
                 className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
               >
-                <option value="">All Providers</option>
+                <option value="">{f.allProviders}</option>
                 <option value="mtn_momo">MTN MoMo</option>
                 <option value="airtel_money">Airtel Money</option>
               </select>
               <div className="flex gap-2 items-end">
                 <div className="space-y-0.5">
-                  <Label className="text-xs text-gray-500">From</Label>
+                  <Label className="text-xs text-gray-500">{f.from}</Label>
                   <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-36" />
                 </div>
                 <div className="space-y-0.5">
-                  <Label className="text-xs text-gray-500">To</Label>
+                  <Label className="text-xs text-gray-500">{f.to}</Label>
                   <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-36" />
                 </div>
               </div>
@@ -307,7 +300,7 @@ export function Finance() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle>
-              Transactions
+              {f.cardTitle}
               {!isLoading && <span className="ml-2 text-sm font-normal text-gray-400">({total} total)</span>}
             </CardTitle>
           </CardHeader>
@@ -321,7 +314,7 @@ export function Finance() {
                 <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center">
                   <TrendingUp className="w-7 h-7 text-gray-400" />
                 </div>
-                <p className="text-sm font-medium text-gray-700">No transactions found</p>
+                <p className="text-sm font-medium text-gray-700">{f.emptyTitle}</p>
               </div>
             ) : (
               <>
@@ -329,13 +322,13 @@ export function Finance() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Transaction ID</TableHead>
-                        <TableHead>Rider</TableHead>
-                        <TableHead>Amount</TableHead>
-                        <TableHead>Provider</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Date</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
+                        <TableHead>{f.colTxId}</TableHead>
+                        <TableHead>{f.colRider}</TableHead>
+                        <TableHead>{f.colAmount}</TableHead>
+                        <TableHead>{f.colProvider}</TableHead>
+                        <TableHead>{f.colStatus}</TableHead>
+                        <TableHead>{f.colDate}</TableHead>
+                        <TableHead className="text-right">{f.colActions}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -359,7 +352,7 @@ export function Finance() {
                           <TableCell>
                             <div className="flex items-center gap-1.5">
                               <Badge variant={statusVariant(tx.status, tx.refunded)} className="text-xs">
-                                {tx.refunded ? 'Refunded' : tx.status.charAt(0).toUpperCase() + tx.status.slice(1)}
+                                {tx.refunded ? f.statusRefunded : tx.status.charAt(0).toUpperCase() + tx.status.slice(1)}
                               </Badge>
                               {tx.status === 'pending' && <Clock className="w-3.5 h-3.5 text-warning" />}
                             </div>
@@ -373,7 +366,7 @@ export function Finance() {
                                 onClick={() => setRefundTarget(tx)}
                                 className="text-xs text-warning hover:underline font-medium flex items-center gap-1 ml-auto"
                               >
-                                <RotateCcw className="w-3 h-3" />Refund
+                                <RotateCcw className="w-3 h-3" />{f.refundBtn}
                               </button>
                             )}
                           </TableCell>
@@ -385,7 +378,7 @@ export function Finance() {
 
                 {totalPages > 1 && (
                   <div className="flex items-center justify-between px-6 py-4 border-t">
-                    <span className="text-xs text-gray-500">Page {page} of {totalPages} · {total} transactions</span>
+                    <span className="text-xs text-gray-500">{f.page} {page} {f.of} {totalPages} · {total} {f.totalTx}</span>
                     <div className="flex gap-2">
                       <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1 || isLoading}>
                         <ChevronLeft className="w-4 h-4" />

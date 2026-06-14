@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../contexts/AuthContext'
+import { useLanguage } from '../../contexts/LanguageContext'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -91,6 +92,8 @@ function KpiCard({ label, value, sub, icon, iconBg, valueColor }: {
 export function AdminDashboard() {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const { t } = useLanguage()
+  const d = t.admin.dashboard
   const [kpis, setKpis] = useState<KpiReport | null>(null)
   const [userStats, setUserStats] = useState<UserStats | null>(null)
   const [recentLogs, setRecentLogs] = useState<AuditEntry[]>([])
@@ -118,11 +121,14 @@ export function AdminDashboard() {
 
   useEffect(() => { loadData() }, [loadData])
 
-  const systemAlerts = []
+  const systemAlerts: string[] = []
   if (kpis) {
-    if (kpis.faultyBatteries > 0) systemAlerts.push(`${kpis.faultyBatteries} faulty batteries need attention`)
-    if (kpis.batteryHealthPercent < 70) systemAlerts.push('Overall battery health is below 70%')
-    if (kpis.stationUtilizationRate > 90) systemAlerts.push('Station network near capacity (>90% utilization)')
+    if (kpis.faultyBatteries > 0)
+      systemAlerts.push(d.alertFaulty.replace('{n}', String(kpis.faultyBatteries)))
+    if (kpis.batteryHealthPercent < 70)
+      systemAlerts.push(d.alertHealth)
+    if (kpis.stationUtilizationRate > 90)
+      systemAlerts.push(d.alertCapacity)
   }
 
   return (
@@ -132,9 +138,9 @@ export function AdminDashboard() {
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
+            <h1 className="text-3xl font-bold text-gray-900">{d.title}</h1>
             <p className="text-gray-600 mt-1">
-              Welcome back, {user?.fullName?.split(' ')[0]}. Here's your system overview.
+              {d.subtitle.replace('{name}', user?.fullName?.split(' ')[0] ?? '')}
             </p>
           </div>
           <button
@@ -149,7 +155,7 @@ export function AdminDashboard() {
         {error && (
           <div className="flex items-center gap-3 p-4 bg-error/5 border border-error/20 rounded-xl text-sm text-error">
             <AlertCircle className="w-4 h-4 shrink-0" /><span>{error}</span>
-            <Button variant="ghost" size="sm" onClick={loadData} className="ml-auto text-error">Retry</Button>
+            <Button variant="ghost" size="sm" onClick={loadData} className="ml-auto text-error">{d.retry}</Button>
           </div>
         )}
 
@@ -157,7 +163,7 @@ export function AdminDashboard() {
         {systemAlerts.length > 0 && (
           <div className="p-4 bg-warning/5 border border-warning/20 rounded-xl">
             <p className="text-sm font-medium text-warning mb-2 flex items-center gap-1.5">
-              <AlertCircle className="w-4 h-4" />System Alerts
+              <AlertCircle className="w-4 h-4" />{d.systemAlerts}
             </p>
             <ul className="space-y-1">
               {systemAlerts.map((alert, i) => (
@@ -179,33 +185,33 @@ export function AdminDashboard() {
           <>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <KpiCard
-                label="Total Users"
+                label={d.kpiUsers}
                 value={(userStats?.total ?? 0).toLocaleString()}
-                sub={`${userStats?.byStatus?.active ?? 0} active`}
+                sub={d.kpiUsersActive.replace('{n}', String(userStats?.byStatus?.active ?? 0))}
                 icon={<Users className="w-6 h-6 text-primary" />}
                 iconBg="bg-primary/10"
                 valueColor="text-primary"
               />
               <KpiCard
-                label="Total Stations"
+                label={d.kpiStations}
                 value={kpis.totalStations}
-                sub={`${Math.round(kpis.stationUtilizationRate)}% utilization`}
+                sub={d.kpiStationsUtil.replace('{n}', String(Math.round(kpis.stationUtilizationRate)))}
                 icon={<MapPin className="w-6 h-6 text-success" />}
                 iconBg="bg-success/10"
                 valueColor="text-success"
               />
               <KpiCard
-                label="Total Batteries"
+                label={d.kpiBatteries}
                 value={kpis.totalBatteries}
-                sub={`${kpis.faultyBatteries} faulty`}
+                sub={d.kpiBatteriesFaulty.replace('{n}', String(kpis.faultyBatteries))}
                 icon={<Battery className="w-6 h-6 text-warning" />}
                 iconBg="bg-warning/10"
                 valueColor="text-warning"
               />
               <KpiCard
-                label="Total Revenue"
+                label={d.kpiRevenue}
                 value={fmtRwf(kpis.totalRevenueRwf)}
-                sub={`${kpis.totalSwaps.toLocaleString()} total swaps`}
+                sub={d.kpiRevenueSwaps.replace('{n}', kpis.totalSwaps.toLocaleString())}
                 icon={<TrendingUp className="w-6 h-6 text-gray-600" />}
                 iconBg="bg-gray-100"
                 valueColor="text-gray-900"
@@ -217,13 +223,13 @@ export function AdminDashboard() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>System Health</CardTitle>
+                  <CardTitle>{d.systemHealth}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {[
-                    { label: 'Station Utilization', value: Math.round(kpis.stationUtilizationRate), color: kpis.stationUtilizationRate > 85 ? 'bg-warning' : 'bg-primary' },
-                    { label: 'Battery Health', value: Math.round(kpis.batteryHealthPercent), color: kpis.batteryHealthPercent < 70 ? 'bg-error' : 'bg-success' },
-                    { label: 'Swap Completion Rate', value: kpis.totalSwaps > 0 ? Math.round((kpis.completedSwaps / kpis.totalSwaps) * 100) : 0, color: 'bg-primary' },
+                    { label: d.healthUtilization, value: Math.round(kpis.stationUtilizationRate), color: kpis.stationUtilizationRate > 85 ? 'bg-warning' : 'bg-primary' },
+                    { label: d.healthBattery, value: Math.round(kpis.batteryHealthPercent), color: kpis.batteryHealthPercent < 70 ? 'bg-error' : 'bg-success' },
+                    { label: d.healthSwapCompletion, value: kpis.totalSwaps > 0 ? Math.round((kpis.completedSwaps / kpis.totalSwaps) * 100) : 0, color: 'bg-primary' },
                   ].map(({ label, value, color }) => (
                     <div key={label}>
                       <div className="flex justify-between text-sm mb-1.5">
@@ -238,9 +244,9 @@ export function AdminDashboard() {
 
                   <div className="grid grid-cols-3 gap-3 pt-2">
                     {[
-                      { label: 'Avg Wait', value: `${kpis.avgWaitTimeMinutes.toFixed(1)}m`, icon: <Clock className="w-4 h-4 text-primary" /> },
-                      { label: 'Active Riders', value: kpis.activeRiders, icon: <Activity className="w-4 h-4 text-success" /> },
-                      { label: 'Charging', value: kpis.chargingBatteries, icon: <Zap className="w-4 h-4 text-warning" /> },
+                      { label: d.miniAvgWait, value: `${kpis.avgWaitTimeMinutes.toFixed(1)}m`, icon: <Clock className="w-4 h-4 text-primary" /> },
+                      { label: d.miniActiveRiders, value: kpis.activeRiders, icon: <Activity className="w-4 h-4 text-success" /> },
+                      { label: d.miniCharging, value: kpis.chargingBatteries, icon: <Zap className="w-4 h-4 text-warning" /> },
                     ].map(({ label, value, icon }) => (
                       <div key={label} className="p-3 bg-gray-50 rounded-xl text-center">
                         <div className="flex justify-center mb-1">{icon}</div>
@@ -254,14 +260,14 @@ export function AdminDashboard() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>User Breakdown</CardTitle>
+                  <CardTitle>{d.userBreakdown}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {userStats && [
-                    { label: 'Riders', count: userStats.byRole.rider, color: 'bg-primary', icon: <Users className="w-4 h-4 text-primary" /> },
-                    { label: 'Operators', count: userStats.byRole.operator, color: 'bg-warning', icon: <Shield className="w-4 h-4 text-warning" /> },
-                    { label: 'Technicians', count: userStats.byRole.technician, color: 'bg-gray-500', icon: <Wrench className="w-4 h-4 text-gray-500" /> },
-                    { label: 'Admins', count: userStats.byRole.admin, color: 'bg-error', icon: <CheckCircle2 className="w-4 h-4 text-error" /> },
+                    { label: d.breakdownRiders, count: userStats.byRole.rider, color: 'bg-primary', icon: <Users className="w-4 h-4 text-primary" /> },
+                    { label: d.breakdownOperators, count: userStats.byRole.operator, color: 'bg-warning', icon: <Shield className="w-4 h-4 text-warning" /> },
+                    { label: d.breakdownTechnicians, count: userStats.byRole.technician, color: 'bg-gray-500', icon: <Wrench className="w-4 h-4 text-gray-500" /> },
+                    { label: d.breakdownAdmins, count: userStats.byRole.admin, color: 'bg-error', icon: <CheckCircle2 className="w-4 h-4 text-error" /> },
                   ].map(({ label, count, color, icon }) => (
                     <div key={label} className="flex items-center gap-3">
                       <div className="w-8 h-8 bg-gray-50 rounded-full flex items-center justify-center shrink-0">{icon}</div>
@@ -289,18 +295,18 @@ export function AdminDashboard() {
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle>Recent Activity</CardTitle>
+              <CardTitle>{d.recentActivity}</CardTitle>
               <button
                 onClick={() => navigate('/admin/settings')}
                 className="text-xs text-primary flex items-center gap-1 hover:underline"
               >
-                View all <ArrowRight className="w-3 h-3" />
+                {d.viewAll} <ArrowRight className="w-3 h-3" />
               </button>
             </div>
           </CardHeader>
           <CardContent>
             {recentLogs.length === 0 ? (
-              <p className="text-sm text-gray-500 text-center py-6">No recent activity</p>
+              <p className="text-sm text-gray-500 text-center py-6">{d.noActivity}</p>
             ) : (
               <div className="space-y-2">
                 {recentLogs.map((entry) => (
@@ -328,10 +334,10 @@ export function AdminDashboard() {
         {/* Quick navigation */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {[
-            { label: 'Manage Users', icon: <Users className="w-5 h-5" />, path: '/admin/users', color: 'text-primary' },
-            { label: 'Stations', icon: <MapPin className="w-5 h-5" />, path: '/admin/stations', color: 'text-success' },
-            { label: 'Batteries', icon: <Battery className="w-5 h-5" />, path: '/admin/batteries', color: 'text-warning' },
-            { label: 'Finance', icon: <TrendingUp className="w-5 h-5" />, path: '/admin/finance', color: 'text-gray-700' },
+            { label: d.navUsers, icon: <Users className="w-5 h-5" />, path: '/admin/users', color: 'text-primary' },
+            { label: d.navStations, icon: <MapPin className="w-5 h-5" />, path: '/admin/stations', color: 'text-success' },
+            { label: d.navBatteries, icon: <Battery className="w-5 h-5" />, path: '/admin/batteries', color: 'text-warning' },
+            { label: d.navFinance, icon: <TrendingUp className="w-5 h-5" />, path: '/admin/finance', color: 'text-gray-700' },
           ].map(({ label, icon, path, color }) => (
             <button
               key={path}

@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../contexts/AuthContext'
+import { useLanguage } from '../../contexts/LanguageContext'
 import type { StationDetail, StationMaintenanceRequest } from '../../types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -24,10 +25,6 @@ function statusVariant(status: string) {
   if (status === 'resolved') return 'success' as const
   if (status === 'in_progress') return 'warning' as const
   return 'default' as const
-}
-
-function statusLabel(s: string) {
-  return s === 'in_progress' ? 'In Progress' : s.charAt(0).toUpperCase() + s.slice(1)
 }
 
 function fmtDate(iso: string) {
@@ -67,8 +64,17 @@ function KpiCard({ label, value, icon, iconBg, valueColor, sub }: KpiCardProps) 
 // ── Compact Task Row ──────────────────────────────────────────────────────────
 
 function TaskRow({ task, onStart }: { task: StationMaintenanceRequest; onStart: (id: string) => void }) {
+  const { t } = useLanguage()
+  const tk = t.technician.tasks
   const stationName = typeof task.stationId === 'object' ? task.stationId.name : 'Unknown Station'
   const isOpen = task.status === 'open' || task.status === 'assigned'
+  const getStatusLabel = (s: string) => {
+    if (s === 'open') return tk.statusOpen
+    if (s === 'assigned') return tk.statusAssigned
+    if (s === 'in_progress') return tk.statusInProgress
+    if (s === 'resolved') return tk.statusResolved
+    return s
+  }
 
   return (
     <div className="p-4 border rounded-xl hover:border-gray-300 transition-colors">
@@ -82,7 +88,7 @@ function TaskRow({ task, onStart }: { task: StationMaintenanceRequest; onStart: 
               {task.urgency}
             </Badge>
             <Badge variant={statusVariant(task.status)} className="text-xs">
-              {statusLabel(task.status)}
+              {getStatusLabel(task.status)}
             </Badge>
           </div>
           <p className="font-medium text-sm text-gray-900 truncate">{task.equipment}</p>
@@ -98,7 +104,7 @@ function TaskRow({ task, onStart }: { task: StationMaintenanceRequest; onStart: 
         </div>
         {isOpen && (
           <Button size="sm" variant="outline" className="shrink-0 text-xs" onClick={() => onStart(task._id)}>
-            Start
+            {t.technician.dashboard.start}
           </Button>
         )}
       </div>
@@ -110,6 +116,8 @@ function TaskRow({ task, onStart }: { task: StationMaintenanceRequest; onStart: 
 
 export function TechnicianDashboard() {
   const { user } = useAuth()
+  const { t } = useLanguage()
+  const d = t.technician.dashboard
   const navigate = useNavigate()
   const [stations, setStations] = useState<StationDetail[]>([])
   const [tasks, setTasks] = useState<StationMaintenanceRequest[]>([])
@@ -175,11 +183,11 @@ export function TechnicianDashboard() {
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">
-              Good day, {user?.fullName?.split(' ')[0] ?? 'Technician'}
+              {d.greeting} {user?.fullName?.split(' ')[0] ?? d.technicianFallback}
             </h1>
             <p className="text-gray-600 mt-1">
-              {stations.length} assigned station{stations.length !== 1 ? 's' : ''} ·{' '}
-              {openCount + inProgressCount} active task{openCount + inProgressCount !== 1 ? 's' : ''}
+              {stations.length} {stations.length !== 1 ? d.stationsPlural : d.stationsSingle} ·{' '}
+              {openCount + inProgressCount} {openCount + inProgressCount !== 1 ? d.tasksPlural : d.tasksSingle}
             </p>
           </div>
           <button
@@ -194,7 +202,7 @@ export function TechnicianDashboard() {
           <div className="flex items-center gap-3 p-4 bg-error/5 border border-error/20 rounded-xl text-sm text-error">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{error}</span>
-            <Button variant="ghost" size="sm" onClick={loadData} className="ml-auto text-error">Retry</Button>
+            <Button variant="ghost" size="sm" onClick={loadData} className="ml-auto text-error">{d.retry}</Button>
           </div>
         )}
 
@@ -202,20 +210,20 @@ export function TechnicianDashboard() {
           <div className="flex items-center gap-3 p-4 bg-error/5 border border-error/20 rounded-xl text-sm text-error">
             <AlertTriangle className="w-4 h-4 shrink-0" />
             <span>
-              {criticalCount} critical/high-priority task{criticalCount !== 1 ? 's' : ''} require immediate attention.
+              {criticalCount} {criticalCount !== 1 ? d.criticalAlerts : d.criticalAlert} {d.criticalSuffix}
             </span>
             <Button variant="ghost" size="sm" onClick={() => navigate('/technician/tasks')} className="ml-auto text-error">
-              View Tasks
+              {d.viewTasks}
             </Button>
           </div>
         )}
 
         {/* KPIs */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <KpiCard label="Open Tasks" value={openCount} icon={<ClipboardList className="w-5 h-5 text-error" />} iconBg="bg-error/10" valueColor="text-error" sub="Needs action" />
-          <KpiCard label="In Progress" value={inProgressCount} icon={<Activity className="w-5 h-5 text-warning" />} iconBg="bg-warning/10" valueColor="text-warning" sub="Currently working" />
-          <KpiCard label="Resolved" value={resolvedCount} icon={<CheckCircle2 className="w-5 h-5 text-success" />} iconBg="bg-success/10" valueColor="text-success" sub="All time" />
-          <KpiCard label="Stations" value={stations.length} icon={<MapPin className="w-5 h-5 text-primary" />} iconBg="bg-primary/10" valueColor="text-primary" sub="Assigned to you" />
+          <KpiCard label={d.kpiOpen} value={openCount} icon={<ClipboardList className="w-5 h-5 text-error" />} iconBg="bg-error/10" valueColor="text-error" sub={d.kpiOpenSub} />
+          <KpiCard label={d.kpiInProgress} value={inProgressCount} icon={<Activity className="w-5 h-5 text-warning" />} iconBg="bg-warning/10" valueColor="text-warning" sub={d.kpiInProgressSub} />
+          <KpiCard label={d.kpiResolved} value={resolvedCount} icon={<CheckCircle2 className="w-5 h-5 text-success" />} iconBg="bg-success/10" valueColor="text-success" sub={d.kpiResolvedSub} />
+          <KpiCard label={d.kpiStations} value={stations.length} icon={<MapPin className="w-5 h-5 text-primary" />} iconBg="bg-primary/10" valueColor="text-primary" sub={d.kpiStationsSub} />
         </div>
 
         <div className="grid lg:grid-cols-2 gap-6">
@@ -223,8 +231,8 @@ export function TechnicianDashboard() {
           {/* Active tasks */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-3">
-              <CardTitle>Active Tasks</CardTitle>
-              <Button size="sm" variant="ghost" onClick={() => navigate('/technician/tasks')}>View All</Button>
+              <CardTitle>{d.activeTasks}</CardTitle>
+              <Button size="sm" variant="ghost" onClick={() => navigate('/technician/tasks')}>{d.viewAll}</Button>
             </CardHeader>
             <CardContent>
               {activeTasks.length === 0 ? (
@@ -232,8 +240,8 @@ export function TechnicianDashboard() {
                   <div className="w-12 h-12 bg-success/10 rounded-full flex items-center justify-center">
                     <CheckCircle2 className="w-6 h-6 text-success" />
                   </div>
-                  <p className="text-sm font-medium text-gray-700">All caught up!</p>
-                  <p className="text-xs text-gray-500">No active tasks at the moment</p>
+                  <p className="text-sm font-medium text-gray-700">{d.allCaughtUp}</p>
+                  <p className="text-xs text-gray-500">{d.noActiveTasks}</p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -248,8 +256,8 @@ export function TechnicianDashboard() {
           {/* Assigned stations */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-3">
-              <CardTitle>My Stations</CardTitle>
-              <Button size="sm" variant="ghost" onClick={() => navigate('/technician/diagnostics')}>Diagnostics</Button>
+              <CardTitle>{d.myStations}</CardTitle>
+              <Button size="sm" variant="ghost" onClick={() => navigate('/technician/diagnostics')}>{d.diagnosticsBtn}</Button>
             </CardHeader>
             <CardContent>
               {stations.length === 0 ? (
@@ -257,8 +265,8 @@ export function TechnicianDashboard() {
                   <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
                     <MapPin className="w-6 h-6 text-gray-400" />
                   </div>
-                  <p className="text-sm font-medium text-gray-700">No stations assigned</p>
-                  <p className="text-xs text-gray-500">Contact your admin</p>
+                  <p className="text-sm font-medium text-gray-700">{d.noStations}</p>
+                  <p className="text-xs text-gray-500">{d.contactAdmin}</p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -281,8 +289,8 @@ export function TechnicianDashboard() {
                         </Badge>
                       </div>
                       <div className="mt-3 flex items-center gap-4 text-xs text-gray-500">
-                        <span>{station.totalSlots} slots</span>
-                        <span className="text-success">{station.availableBatteries} available</span>
+                        <span>{station.totalSlots} {d.slots}</span>
+                        <span className="text-success">{station.availableBatteries} {d.available}</span>
                         {station.operatorId && (
                           <span className="flex items-center gap-1 ml-auto">
                             <User className="w-3 h-3" />
@@ -300,14 +308,14 @@ export function TechnicianDashboard() {
 
         {/* Quick actions */}
         <Card>
-          <CardHeader><CardTitle>Quick Actions</CardTitle></CardHeader>
+          <CardHeader><CardTitle>{d.quickActions}</CardTitle></CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
-                { label: 'My Tasks', icon: <ClipboardList className="w-5 h-5" />, path: '/technician/tasks', cls: 'text-primary bg-primary/5 border-primary/20' },
-                { label: 'Diagnostics', icon: <Wrench className="w-5 h-5" />, path: '/technician/diagnostics', cls: 'text-warning bg-warning/5 border-warning/20' },
-                { label: 'Work History', icon: <CheckCircle2 className="w-5 h-5" />, path: '/technician/work-history', cls: 'text-success bg-success/5 border-success/20' },
-                { label: 'My Profile', icon: <User className="w-5 h-5" />, path: '/technician/profile', cls: 'text-gray-600 bg-gray-50 border-gray-200' },
+                { label: d.qaMyTasks, icon: <ClipboardList className="w-5 h-5" />, path: '/technician/tasks', cls: 'text-primary bg-primary/5 border-primary/20' },
+                { label: d.qaDiagnostics, icon: <Wrench className="w-5 h-5" />, path: '/technician/diagnostics', cls: 'text-warning bg-warning/5 border-warning/20' },
+                { label: d.qaWorkHistory, icon: <CheckCircle2 className="w-5 h-5" />, path: '/technician/work-history', cls: 'text-success bg-success/5 border-success/20' },
+                { label: d.qaMyProfile, icon: <User className="w-5 h-5" />, path: '/technician/profile', cls: 'text-gray-600 bg-gray-50 border-gray-200' },
               ].map(({ label, icon, path, cls }) => (
                 <button
                   key={label}

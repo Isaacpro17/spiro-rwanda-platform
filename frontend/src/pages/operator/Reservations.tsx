@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../contexts/AuthContext'
+import { useLanguage } from '../../contexts/LanguageContext'
 import type { StationDetail, StationReservation } from '../../types'
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -27,9 +28,9 @@ function formatTime(iso: string) {
   })
 }
 
-function timeUntil(iso: string) {
+function timeUntil(iso: string, overdue: string) {
   const diff = new Date(iso).getTime() - Date.now()
-  if (diff < 0) return 'Overdue'
+  if (diff < 0) return overdue
   const mins = Math.floor(diff / 60000)
   if (mins < 60) return `in ${mins}m`
   const hrs = Math.floor(mins / 60)
@@ -40,18 +41,19 @@ function timeUntil(iso: string) {
 
 type Tab = 'upcoming' | 'today' | 'all'
 
-const TAB_LABELS: Record<Tab, string> = {
-  upcoming: 'Upcoming',
-  today: 'Today',
-  all: 'All',
-}
-
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 const PAGE_SIZE = 15
 
 export function Reservations() {
   const { user } = useAuth()
+  const { t } = useLanguage()
+  const r = t.operator.reservations
+  const tabLabels: Record<Tab, string> = {
+    upcoming: r.tabUpcoming,
+    today: r.tabToday,
+    all: r.tabAll,
+  }
   const [station, setStation] = useState<StationDetail | null>(null)
   const [reservations, setReservations] = useState<StationReservation[]>([])
   const [total, setTotal] = useState(0)
@@ -113,8 +115,8 @@ export function Reservations() {
     return () => { if (pollRef.current) clearInterval(pollRef.current) }
   }, [station, page, tab, loadReservations])
 
-  const handleTabChange = (t: Tab) => {
-    setTab(t)
+  const handleTabChange = (newTab: Tab) => {
+    setTab(newTab)
     setPage(1)
   }
 
@@ -127,9 +129,9 @@ export function Reservations() {
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Reservations</h1>
+            <h1 className="text-3xl font-bold text-gray-900">{r.title}</h1>
             <p className="text-gray-600 mt-1">
-              {station ? `${station.name} — manage swap reservations` : 'Manage swap reservations'}
+              {station ? `${station.name} — ${r.subtitleStation}` : r.subtitle}
             </p>
           </div>
           <button
@@ -146,23 +148,23 @@ export function Reservations() {
           <div className="flex items-center gap-3 p-4 bg-error/5 border border-error/20 rounded-xl text-sm text-error">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{error}</span>
-            <Button variant="ghost" size="sm" onClick={initialLoad} className="ml-auto text-error">Retry</Button>
+            <Button variant="ghost" size="sm" onClick={initialLoad} className="ml-auto text-error">{r.retry}</Button>
           </div>
         )}
 
         {/* Tabs */}
         <div className="flex gap-1 border-b">
-          {(Object.keys(TAB_LABELS) as Tab[]).map((t) => (
+          {(Object.keys(tabLabels) as Tab[]).map((tabKey) => (
             <button
-              key={t}
-              onClick={() => handleTabChange(t)}
+              key={tabKey}
+              onClick={() => handleTabChange(tabKey)}
               className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                tab === t
+                tab === tabKey
                   ? 'border-primary text-primary'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}
             >
-              {TAB_LABELS[t]}
+              {tabLabels[tabKey]}
             </button>
           ))}
         </div>
@@ -171,7 +173,7 @@ export function Reservations() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-3">
             <CardTitle>
-              {TAB_LABELS[tab]} Reservations
+              {tabLabels[tab]} {r.cardTitle}
               {!isLoading && <span className="ml-2 text-sm font-normal text-gray-400">({total})</span>}
             </CardTitle>
           </CardHeader>
@@ -186,13 +188,9 @@ export function Reservations() {
                 <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center">
                   <Calendar className="w-7 h-7 text-gray-400" />
                 </div>
-                <p className="text-sm font-medium text-gray-700">No reservations found</p>
+                <p className="text-sm font-medium text-gray-700">{r.emptyTitle}</p>
                 <p className="text-xs text-gray-500">
-                  {tab === 'upcoming'
-                    ? 'No upcoming reservations at this station'
-                    : tab === 'today'
-                    ? 'No reservations today'
-                    : 'No reservations recorded'}
+                  {tab === 'upcoming' ? r.emptyUpcoming : tab === 'today' ? r.emptyToday : r.emptyAll}
                 </p>
               </div>
             ) : (
@@ -201,13 +199,13 @@ export function Reservations() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Rider</TableHead>
-                        <TableHead>Phone</TableHead>
-                        <TableHead>Reserved For</TableHead>
-                        {tab === 'upcoming' && <TableHead>Time Until</TableHead>}
-                        <TableHead>Position</TableHead>
-                        <TableHead>Code</TableHead>
-                        <TableHead>Status</TableHead>
+                        <TableHead>{r.colRider}</TableHead>
+                        <TableHead>{r.colPhone}</TableHead>
+                        <TableHead>{r.colReservedFor}</TableHead>
+                        {tab === 'upcoming' && <TableHead>{r.colTimeUntil}</TableHead>}
+                        <TableHead>{r.colPosition}</TableHead>
+                        <TableHead>{r.colCode}</TableHead>
+                        <TableHead>{r.colStatus}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -219,7 +217,7 @@ export function Reservations() {
                                 <User className="w-3.5 h-3.5 text-primary" />
                               </div>
                               <span className="text-sm font-medium">
-                                {(res.riderId as any)?.fullName ?? 'Unknown Rider'}
+                                {(res.riderId as any)?.fullName ?? r.unknownRider}
                               </span>
                             </div>
                           </TableCell>
@@ -241,7 +239,7 @@ export function Reservations() {
                                   ? 'text-warning font-medium'
                                   : 'text-gray-600'
                               }>
-                                {timeUntil(res.reservedTime)}
+                                {timeUntil(res.reservedTime, r.overdue)}
                               </span>
                             </TableCell>
                           )}
@@ -264,7 +262,7 @@ export function Reservations() {
 
                 {totalPages > 1 && (
                   <div className="flex items-center justify-between px-6 py-4 border-t">
-                    <span className="text-xs text-gray-500">Page {page} of {totalPages} · {total} total</span>
+                    <span className="text-xs text-gray-500">{r.page} {page} {r.of} {totalPages} · {total} {r.total}</span>
                     <div className="flex gap-2">
                       <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1 || isLoading}>
                         <ChevronLeft className="w-4 h-4" />

@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../contexts/AuthContext'
+import { useLanguage } from '../../contexts/LanguageContext'
 import type { StationDetail, StationMaintenanceRequest } from '../../types'
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -38,14 +39,6 @@ function statusVariant(status: MStatus) {
   return 'destructive'
 }
 
-function statusLabel(status: MStatus) {
-  if (status === 'open') return 'Open'
-  if (status === 'assigned') return 'Assigned'
-  if (status === 'in_progress') return 'In Progress'
-  if (status === 'resolved') return 'Resolved'
-  return status
-}
-
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })
 }
@@ -58,6 +51,8 @@ interface NewRequestModalProps {
 }
 
 function NewRequestModal({ onClose, onSubmit }: NewRequestModalProps) {
+  const { t } = useLanguage()
+  const m = t.operator.maintenance.modal
   const [equipment, setEquipment] = useState('')
   const [faultDescription, setFaultDescription] = useState('')
   const [urgency, setUrgency] = useState<Urgency>('medium')
@@ -65,8 +60,8 @@ function NewRequestModal({ onClose, onSubmit }: NewRequestModalProps) {
   const [err, setErr] = useState('')
 
   const handleSubmit = async () => {
-    if (!equipment.trim()) { setErr('Equipment is required'); return }
-    if (!faultDescription.trim()) { setErr('Fault description is required'); return }
+    if (!equipment.trim()) { setErr(m.errEquipment); return }
+    if (!faultDescription.trim()) { setErr(m.errFault); return }
     setSaving(true)
     setErr('')
     try {
@@ -83,7 +78,7 @@ function NewRequestModal({ onClose, onSubmit }: NewRequestModalProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-lg mx-4" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-semibold">New Maintenance Request</h2>
+          <h2 className="text-lg font-semibold">{m.title}</h2>
           <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100">
             <X className="w-4 h-4" />
           </button>
@@ -91,48 +86,48 @@ function NewRequestModal({ onClose, onSubmit }: NewRequestModalProps) {
 
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="equipment" className="text-xs">Equipment / Component</Label>
+            <Label htmlFor="equipment" className="text-xs">{m.equipment}</Label>
             <Input
               id="equipment"
-              placeholder="e.g. Battery Slot 3, Charging Unit A, Main Switch"
+              placeholder={m.equipmentPlaceholder}
               value={equipment}
               onChange={(e) => setEquipment(e.target.value)}
             />
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="fault-desc" className="text-xs">Fault Description</Label>
+            <Label htmlFor="fault-desc" className="text-xs">{m.faultDesc}</Label>
             <textarea
               id="fault-desc"
               rows={3}
               value={faultDescription}
               onChange={(e) => setFaultDescription(e.target.value)}
-              placeholder="Describe the problem in detail…"
+              placeholder={m.faultPlaceholder}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
             />
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="urgency" className="text-xs">Urgency Level</Label>
+            <Label htmlFor="urgency" className="text-xs">{m.urgency}</Label>
             <Select
               id="urgency"
               value={urgency}
               onChange={(e) => setUrgency(e.target.value as Urgency)}
             >
-              <option value="low">Low — Can wait a few days</option>
-              <option value="medium">Medium — Needs attention soon</option>
-              <option value="high">High — Affecting station operations</option>
-              <option value="critical">Critical — Station is down / safety issue</option>
+              <option value="low">{m.urgencyLow}</option>
+              <option value="medium">{m.urgencyMedium}</option>
+              <option value="high">{m.urgencyHigh}</option>
+              <option value="critical">{m.urgencyCritical}</option>
             </Select>
           </div>
 
           {err && <p className="text-xs text-error">{err}</p>}
 
           <div className="flex gap-2 pt-1">
-            <Button variant="outline" size="sm" onClick={onClose} className="flex-1">Cancel</Button>
+            <Button variant="outline" size="sm" onClick={onClose} className="flex-1">{m.cancel}</Button>
             <Button size="sm" onClick={handleSubmit} disabled={saving} className="flex-1">
               {saving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Plus className="w-4 h-4 mr-1" />}
-              Submit Request
+              {m.submit}
             </Button>
           </div>
         </div>
@@ -144,6 +139,15 @@ function NewRequestModal({ onClose, onSubmit }: NewRequestModalProps) {
 // ── Request Card ──────────────────────────────────────────────────────────────
 
 function RequestCard({ req }: { req: StationMaintenanceRequest }) {
+  const { t } = useLanguage()
+  const mn = t.operator.maintenance
+  const getStatusLabel = (status: MStatus) => {
+    if (status === 'open') return mn.statusOpen
+    if (status === 'assigned') return mn.statusAssigned
+    if (status === 'in_progress') return mn.statusInProgress
+    if (status === 'resolved') return mn.statusResolved
+    return status
+  }
   return (
     <div className="p-4 border rounded-xl hover:border-gray-300 transition-colors">
       <div className="flex items-start justify-between gap-3">
@@ -165,7 +169,7 @@ function RequestCard({ req }: { req: StationMaintenanceRequest }) {
             <span className="ml-1">{req.urgency}</span>
           </Badge>
           <Badge variant={statusVariant(req.status)} className="text-xs">
-            {statusLabel(req.status)}
+            {getStatusLabel(req.status)}
           </Badge>
         </div>
       </div>
@@ -186,14 +190,14 @@ function RequestCard({ req }: { req: StationMaintenanceRequest }) {
         )}
         {req.resolvedAt && (
           <div className="text-success">
-            Resolved {fmtDate(req.resolvedAt)}
+            {mn.resolvedOn} {fmtDate(req.resolvedAt)}
           </div>
         )}
       </div>
 
       {req.notes && (
         <div className="mt-2 text-xs text-gray-600 bg-gray-50 rounded-lg px-3 py-2">
-          <span className="font-medium">Notes:</span> {req.notes}
+          <span className="font-medium">{mn.notes}:</span> {req.notes}
         </div>
       )}
     </div>
@@ -206,6 +210,8 @@ const PAGE_SIZE = 10
 
 export function Maintenance() {
   const { user } = useAuth()
+  const { t } = useLanguage()
+  const m = t.operator.maintenance
   const [station, setStation] = useState<StationDetail | null>(null)
   const [requests, setRequests] = useState<StationMaintenanceRequest[]>([])
   const [total, setTotal] = useState(0)
@@ -270,9 +276,9 @@ export function Maintenance() {
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Maintenance Requests</h1>
+            <h1 className="text-3xl font-bold text-gray-900">{m.title}</h1>
             <p className="text-gray-600 mt-1">
-              {station ? `${station.name} — report and track maintenance issues` : 'Report and track maintenance issues'}
+              {station ? `${station.name} — ${m.subtitleStation}` : m.subtitle}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -284,7 +290,7 @@ export function Maintenance() {
             </button>
             <Button size="sm" onClick={() => setShowModal(true)}>
               <Plus className="w-4 h-4 mr-1" />
-              New Request
+              {m.newRequest}
             </Button>
           </div>
         </div>
@@ -293,7 +299,7 @@ export function Maintenance() {
           <div className="flex items-center gap-3 p-4 bg-error/5 border border-error/20 rounded-xl text-sm text-error">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{error}</span>
-            <Button variant="ghost" size="sm" onClick={initialLoad} className="ml-auto text-error">Retry</Button>
+            <Button variant="ghost" size="sm" onClick={initialLoad} className="ml-auto text-error">{m.retry}</Button>
           </div>
         )}
 
@@ -301,10 +307,10 @@ export function Maintenance() {
         {!isLoading && !error && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {[
-              { label: 'Total Requests', value: total, color: 'text-gray-900' },
-              { label: 'Open', value: requests.filter((r) => r.status === 'open').length, color: 'text-error' },
-              { label: 'In Progress', value: requests.filter((r) => r.status === 'assigned' || r.status === 'in_progress').length, color: 'text-warning' },
-              { label: 'Resolved', value: requests.filter((r) => r.status === 'resolved').length, color: 'text-success' },
+              { label: m.statTotal, value: total, color: 'text-gray-900' },
+              { label: m.statOpen, value: requests.filter((req) => req.status === 'open').length, color: 'text-error' },
+              { label: m.statInProgress, value: requests.filter((req) => req.status === 'assigned' || req.status === 'in_progress').length, color: 'text-warning' },
+              { label: m.statResolved, value: requests.filter((req) => req.status === 'resolved').length, color: 'text-success' },
             ].map(({ label, value, color }) => (
               <Card key={label}>
                 <CardContent className="pt-4 pb-4">
@@ -321,7 +327,7 @@ export function Maintenance() {
           <div className="flex items-center gap-3 p-4 bg-warning/5 border border-warning/20 rounded-xl text-sm text-warning">
             <AlertTriangle className="w-4 h-4 shrink-0" />
             <span>
-              {openCount} open request{openCount !== 1 ? 's' : ''} awaiting technician assignment.
+              {openCount} {openCount !== 1 ? m.openAlerts : m.openAlert} {m.openAlertSuffix}
             </span>
           </div>
         )}
@@ -330,7 +336,7 @@ export function Maintenance() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-3">
             <CardTitle>
-              Maintenance Requests
+              {m.cardTitle}
               {!isLoading && <span className="ml-2 text-sm font-normal text-gray-400">({total})</span>}
             </CardTitle>
             <Select
@@ -338,11 +344,11 @@ export function Maintenance() {
               onChange={(e) => { setStatusFilter(e.target.value); setPage(1) }}
               className="w-36 text-sm"
             >
-              <option value="">All statuses</option>
-              <option value="open">Open</option>
-              <option value="assigned">Assigned</option>
-              <option value="in_progress">In Progress</option>
-              <option value="resolved">Resolved</option>
+              <option value="">{m.allStatuses}</option>
+              <option value="open">{m.statusOpen}</option>
+              <option value="assigned">{m.statusAssigned}</option>
+              <option value="in_progress">{m.statusInProgress}</option>
+              <option value="resolved">{m.statusResolved}</option>
             </Select>
           </CardHeader>
           <CardContent>
@@ -356,12 +362,12 @@ export function Maintenance() {
                 <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center">
                   <Wrench className="w-7 h-7 text-gray-400" />
                 </div>
-                <p className="text-sm font-medium text-gray-700">No maintenance requests</p>
+                <p className="text-sm font-medium text-gray-700">{m.emptyTitle}</p>
                 <p className="text-xs text-gray-500">
-                  {statusFilter ? 'No requests with this status' : 'All systems operational'}
+                  {statusFilter ? m.emptyFilter : m.emptyAll}
                 </p>
                 <Button size="sm" variant="outline" onClick={() => setShowModal(true)}>
-                  <Plus className="w-4 h-4 mr-1" /> Report an Issue
+                  <Plus className="w-4 h-4 mr-1" /> {m.reportIssue}
                 </Button>
               </div>
             ) : (
@@ -374,7 +380,7 @@ export function Maintenance() {
 
             {totalPages > 1 && (
               <div className="flex items-center justify-between mt-4 pt-4 border-t">
-                <span className="text-xs text-gray-500">Page {page} of {totalPages}</span>
+                <span className="text-xs text-gray-500">{m.page} {page} {m.of} {totalPages}</span>
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1 || isLoading}>
                     <ChevronLeft className="w-4 h-4" />

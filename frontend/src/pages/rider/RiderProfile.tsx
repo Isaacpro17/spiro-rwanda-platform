@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../contexts/AuthContext'
+import { useLanguage } from '../../contexts/LanguageContext'
 import type { RiderProfileData } from '../../types'
 
 // ── Toast-style notification ──────────────────────────────────────────────────
@@ -53,6 +54,8 @@ function DeleteAccountModal({ onClose, onConfirm, isDeleting }: {
   onConfirm: () => void
   isDeleting: boolean
 }) {
+  const { t } = useLanguage()
+  const m = t.rider.profile.deleteModal
   const [confirmText, setConfirmText] = useState('')
   return (
     <div
@@ -67,31 +70,26 @@ function DeleteAccountModal({ onClose, onConfirm, isDeleting }: {
             <AlertTriangle className="w-6 h-6 text-error" />
           </div>
           <div>
-            <h2 id="delete-account-title" className="text-lg font-bold text-gray-900">Delete Account</h2>
-            <p className="text-sm text-gray-500">This action cannot be undone</p>
+            <h2 id="delete-account-title" className="text-lg font-bold text-gray-900">{m.title}</h2>
+            <p className="text-sm text-gray-500">{m.subtitle}</p>
           </div>
         </div>
 
-        <p className="text-sm text-gray-700">
-          Your account will be anonymised and all personal data removed in compliance with GDPR.
-          Your swap history will be retained for business records only.
-        </p>
+        <p className="text-sm text-gray-700">{m.body}</p>
 
         <div className="space-y-2">
-          <Label htmlFor="confirm-delete">
-            Type <strong>DELETE</strong> to confirm
-          </Label>
+          <Label htmlFor="confirm-delete">{m.confirmLabel}</Label>
           <Input
             id="confirm-delete"
             value={confirmText}
             onChange={(e) => setConfirmText(e.target.value)}
-            placeholder="DELETE"
+            placeholder={m.confirmPlaceholder}
           />
         </div>
 
         <div className="flex gap-3 pt-1">
           <Button type="button" variant="outline" className="flex-1" onClick={onClose} disabled={isDeleting}>
-            Cancel
+            {m.cancel}
           </Button>
           <Button
             type="button"
@@ -99,7 +97,7 @@ function DeleteAccountModal({ onClose, onConfirm, isDeleting }: {
             disabled={confirmText !== 'DELETE' || isDeleting}
             onClick={onConfirm}
           >
-            {isDeleting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Deleting…</> : 'Delete Account'}
+            {isDeleting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{m.deleting}</> : m.deleteBtn}
           </Button>
         </div>
       </div>
@@ -112,6 +110,8 @@ function DeleteAccountModal({ onClose, onConfirm, isDeleting }: {
 export function RiderProfile() {
   const { updateUser, logout } = useAuth()
   const navigate = useNavigate()
+  const { t } = useLanguage()
+  const pr = t.rider.profile
 
   // ── Profile state ──
   const [loading, setLoading]               = useState(true)
@@ -266,8 +266,8 @@ export function RiderProfile() {
       <div className="space-y-6">
 
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">My Profile</h1>
-          <p className="text-gray-600 mt-1">Manage your personal information</p>
+          <h1 className="text-3xl font-bold text-gray-900">{pr.title}</h1>
+          <p className="text-gray-600 mt-1">{pr.subtitle}</p>
         </div>
 
         {/* ── Account summary strip ── */}
@@ -279,7 +279,7 @@ export function RiderProfile() {
                   <CreditCard className="w-5 h-5 text-primary" />
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500">Wallet Balance</p>
+                  <p className="text-xs text-gray-500">{pr.walletBalance}</p>
                   <p className="text-base font-bold text-gray-900">
                     {walletBalance !== null ? 'RWF ' + walletBalance.toLocaleString() : '—'}
                   </p>
@@ -294,7 +294,7 @@ export function RiderProfile() {
                   <Gift className="w-5 h-5 text-warning" />
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500">Loyalty Points</p>
+                  <p className="text-xs text-gray-500">{pr.loyaltyPoints}</p>
                   <p className="text-base font-bold text-gray-900">{loyaltyPoints.toLocaleString()}</p>
                 </div>
               </div>
@@ -308,28 +308,28 @@ export function RiderProfile() {
           <div className="lg:col-span-2 space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Personal Information</CardTitle>
+                <CardTitle>{pr.personalInfo}</CardTitle>
               </CardHeader>
               <CardContent>
                 <Alert notification={profileNotif} onDismiss={() => setProfileNotif(null)} />
                 <form className="space-y-6" onSubmit={handleProfileSave} noValidate>
                   <div className="grid md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="fullName">Full Name</Label>
+                      <Label htmlFor="fullName">{pr.fullName}</Label>
                       <Input id="fullName" value={profile.fullName} onChange={(e) => setProfile((p) => ({ ...p, fullName: e.target.value }))} required />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="email">Email</Label>
+                      <Label htmlFor="email">{pr.email}</Label>
                       <Input id="email" type="email" value={profile.email} onChange={(e) => setProfile((p) => ({ ...p, email: e.target.value }))} required />
                     </div>
                   </div>
                   <div className="grid md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="phone">Phone Number</Label>
+                      <Label htmlFor="phone">{pr.phone}</Label>
                       <Input id="phone" type="tel" value={profile.phone} onChange={(e) => setProfile((p) => ({ ...p, phone: e.target.value }))} />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="nid">ID Number (NID)</Label>
+                      <Label htmlFor="nid">{pr.nid}</Label>
                       <Input
                         id="nid"
                         value={profile.nid}
@@ -339,22 +339,22 @@ export function RiderProfile() {
                         }}
                         maxLength={16}
                         inputMode="numeric"
-                        placeholder="16-digit national ID"
+                        placeholder={pr.nidPlaceholder}
                       />
                     </div>
                   </div>
                   <div className="grid md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="motorcycleModel">Motorcycle Model</Label>
-                      <Input id="motorcycleModel" value={profile.motorcycleModel} onChange={(e) => setProfile((p) => ({ ...p, motorcycleModel: e.target.value }))} placeholder="e.g. Spiro Electric" />
+                      <Label htmlFor="motorcycleModel">{pr.motorcycleModel}</Label>
+                      <Input id="motorcycleModel" value={profile.motorcycleModel} onChange={(e) => setProfile((p) => ({ ...p, motorcycleModel: e.target.value }))} placeholder={pr.motorcyclePlaceholder} />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="vehicleRegistration">Registration Number</Label>
-                      <Input id="vehicleRegistration" value={profile.vehicleRegistration} onChange={(e) => setProfile((p) => ({ ...p, vehicleRegistration: e.target.value }))} placeholder="e.g. RAD 123 A" />
+                      <Label htmlFor="vehicleRegistration">{pr.registrationNumber}</Label>
+                      <Input id="vehicleRegistration" value={profile.vehicleRegistration} onChange={(e) => setProfile((p) => ({ ...p, vehicleRegistration: e.target.value }))} placeholder={pr.registrationPlaceholder} />
                     </div>
                   </div>
                   <Button type="submit" disabled={savingProfile}>
-                    {savingProfile ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving…</> : 'Save Changes'}
+                    {savingProfile ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{pr.saving}</> : pr.saveChanges}
                   </Button>
                 </form>
               </CardContent>
@@ -363,26 +363,26 @@ export function RiderProfile() {
             {/* ── Account Actions ── */}
             <Card>
               <CardHeader>
-                <CardTitle>Account</CardTitle>
+                <CardTitle>{pr.account}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between py-3 border-b">
                   <div>
-                    <p className="text-sm font-medium text-gray-900">Export My Data</p>
-                    <p className="text-xs text-gray-500 mt-0.5">Download all your personal data (GDPR)</p>
+                    <p className="text-sm font-medium text-gray-900">{pr.exportMyData}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{pr.exportDesc}</p>
                   </div>
                   <Button variant="outline" size="sm" onClick={handleExport} disabled={exporting}>
                     {exporting ? (
-                      <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Exporting…</>
+                      <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />{pr.exporting}</>
                     ) : (
-                      <><Download className="w-3.5 h-3.5 mr-1.5" />Export</>
+                      <><Download className="w-3.5 h-3.5 mr-1.5" />{pr.export}</>
                     )}
                   </Button>
                 </div>
                 <div className="flex items-center justify-between py-3">
                   <div>
-                    <p className="text-sm font-medium text-error">Delete Account</p>
-                    <p className="text-xs text-gray-500 mt-0.5">Permanently remove your data</p>
+                    <p className="text-sm font-medium text-error">{pr.deleteAccount}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{pr.deleteDesc}</p>
                   </div>
                   <Button
                     variant="outline"
@@ -391,7 +391,7 @@ export function RiderProfile() {
                     onClick={() => setShowDeleteModal(true)}
                   >
                     <Trash2 className="w-3.5 h-3.5 mr-1.5" />
-                    Delete
+                    {pr.delete}
                   </Button>
                 </div>
               </CardContent>
@@ -402,7 +402,7 @@ export function RiderProfile() {
           <div>
             <Card>
               <CardHeader>
-                <CardTitle>Change Password</CardTitle>
+                <CardTitle>{pr.changePassword}</CardTitle>
               </CardHeader>
               <CardContent>
                 <Alert notification={passNotif} onDismiss={() => setPassNotif(null)} />
@@ -410,9 +410,9 @@ export function RiderProfile() {
 
                   {(['current', 'new', 'confirm'] as const).map((field) => {
                     const fieldMap = {
-                      current: { id: 'currentPassword', label: 'Current Password', placeholder: 'Enter current password' },
-                      new:     { id: 'newPassword',     label: 'New Password',     placeholder: 'Min 8 characters' },
-                      confirm: { id: 'confirmPassword', label: 'Confirm New Password', placeholder: 'Repeat new password' },
+                      current: { id: 'currentPassword', label: pr.currentPassword, placeholder: pr.currentPasswordPlaceholder },
+                      new:     { id: 'newPassword',     label: pr.newPassword,     placeholder: pr.newPasswordPlaceholder },
+                      confirm: { id: 'confirmPassword', label: pr.confirmNewPassword, placeholder: pr.confirmPasswordPlaceholder },
                     }
                     const meta = fieldMap[field]
                     const key = field === 'current' ? 'currentPassword' : field === 'new' ? 'newPassword' : 'confirmPassword'
@@ -441,14 +441,14 @@ export function RiderProfile() {
                           </button>
                         </div>
                         {hasError && (
-                          <p className="text-xs text-red-500">Passwords do not match</p>
+                          <p className="text-xs text-red-500">{pr.passwordsNoMatch}</p>
                         )}
                       </div>
                     )
                   })}
 
                   <Button type="submit" className="w-full" disabled={savingPass}>
-                    {savingPass ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Updating…</> : 'Update Password'}
+                    {savingPass ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{pr.updating}</> : pr.updatePassword}
                   </Button>
                 </form>
               </CardContent>

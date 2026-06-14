@@ -11,15 +11,17 @@ import {
 } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../contexts/AuthContext'
+import { useLanguage } from '../../contexts/LanguageContext'
 import type { User as UserType, StationDetail } from '../../types'
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export function TechnicianProfile() {
   const { user, updateUser } = useAuth()
+  const { t } = useLanguage()
+  const pr = t.technician.profile
   const [stations, setStations] = useState<StationDetail[]>([])
 
-  // Profile form
   const [fullName, setFullName] = useState('')
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
@@ -28,7 +30,6 @@ export function TechnicianProfile() {
   const [profileSuccess, setProfileSuccess] = useState('')
   const [profileError, setProfileError] = useState('')
 
-  // Password form
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -65,7 +66,6 @@ export function TechnicianProfile() {
 
   useEffect(() => { loadData() }, [loadData])
 
-  // Pre-fill from auth context while loading
   useEffect(() => {
     if (user) {
       setFullName((prev) => prev || user.fullName)
@@ -94,11 +94,11 @@ export function TechnicianProfile() {
 
   const handlePasswordChange = async () => {
     if (newPassword !== confirmPassword) {
-      setPasswordError('New passwords do not match')
+      setPasswordError(pr.errPasswordMatch)
       return
     }
     if (newPassword.length < 8) {
-      setPasswordError('New password must be at least 8 characters')
+      setPasswordError(pr.errPasswordLength)
       return
     }
     setPasswordSaving(true)
@@ -135,8 +135,8 @@ export function TechnicianProfile() {
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">My Profile</h1>
-            <p className="text-gray-600 mt-1">Manage your account settings</p>
+            <h1 className="text-3xl font-bold text-gray-900">{pr.title}</h1>
+            <p className="text-gray-600 mt-1">{pr.subtitle}</p>
           </div>
           <button
             onClick={loadData}
@@ -150,7 +150,7 @@ export function TechnicianProfile() {
           <div className="flex items-center gap-3 p-4 bg-error/5 border border-error/20 rounded-xl text-sm text-error">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{loadError}</span>
-            <Button variant="ghost" size="sm" onClick={loadData} className="ml-auto text-error">Retry</Button>
+            <Button variant="ghost" size="sm" onClick={loadData} className="ml-auto text-error">{pr.retry}</Button>
           </div>
         )}
 
@@ -159,7 +159,7 @@ export function TechnicianProfile() {
           {/* Profile info */}
           <Card>
             <CardHeader>
-              <CardTitle>Profile Information</CardTitle>
+              <CardTitle>{pr.profileInfo}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
 
@@ -176,44 +176,44 @@ export function TechnicianProfile() {
 
               <div className="space-y-1.5">
                 <Label htmlFor="fullName" className="text-xs flex items-center gap-1">
-                  <User className="w-3.5 h-3.5" />Full Name
+                  <User className="w-3.5 h-3.5" />{pr.fullName}
                 </Label>
                 <Input
                   id="fullName"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Your full name"
+                  placeholder={pr.fullNamePlaceholder}
                 />
               </div>
 
               <div className="space-y-1.5">
                 <Label htmlFor="phone" className="text-xs flex items-center gap-1">
-                  <Phone className="w-3.5 h-3.5" />Phone Number
+                  <Phone className="w-3.5 h-3.5" />{pr.phone}
                 </Label>
                 <Input
                   id="phone"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  placeholder="+250 ..."
+                  placeholder={pr.phonePlaceholder}
                 />
               </div>
 
               <div className="space-y-1.5">
                 <Label htmlFor="email" className="text-xs flex items-center gap-1">
-                  <Mail className="w-3.5 h-3.5" />Email Address
+                  <Mail className="w-3.5 h-3.5" />{pr.email}
                 </Label>
                 <Input
                   id="email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
+                  placeholder={pr.emailPlaceholder}
                 />
               </div>
 
               <div className="space-y-1.5">
                 <Label className="text-xs flex items-center gap-1">
-                  <Globe className="w-3.5 h-3.5" />Preferred Language
+                  <Globe className="w-3.5 h-3.5" />{pr.language}
                 </Label>
                 <div className="flex gap-2">
                   {(['en', 'rw'] as const).map((lang) => (
@@ -226,7 +226,7 @@ export function TechnicianProfile() {
                           : 'border-gray-200 text-gray-600 hover:border-gray-300'
                       }`}
                     >
-                      {lang === 'en' ? 'English' : 'Kinyarwanda'}
+                      {lang === 'en' ? pr.langEn : pr.langRw}
                     </button>
                   ))}
                 </div>
@@ -234,8 +234,8 @@ export function TechnicianProfile() {
 
               <Button onClick={handleProfileSave} disabled={profileSaving} className="w-full mt-2">
                 {profileSaving ? (
-                  <><Loader2 className="w-4 h-4 animate-spin mr-2" />Saving…</>
-                ) : 'Save Profile'}
+                  <><Loader2 className="w-4 h-4 animate-spin mr-2" />{pr.saving}</>
+                ) : pr.saveProfile}
               </Button>
             </CardContent>
           </Card>
@@ -243,7 +243,7 @@ export function TechnicianProfile() {
           {/* Password change */}
           <Card>
             <CardHeader>
-              <CardTitle>Change Password</CardTitle>
+              <CardTitle>{pr.changePassword}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
 
@@ -259,9 +259,9 @@ export function TechnicianProfile() {
               )}
 
               {[
-                { id: 'cur-pass', label: 'Current Password', value: currentPassword, setter: setCurrentPassword, show: showCurrent, toggle: setShowCurrent },
-                { id: 'new-pass', label: 'New Password', value: newPassword, setter: setNewPassword, show: showNew, toggle: setShowNew },
-                { id: 'confirm-pass', label: 'Confirm New Password', value: confirmPassword, setter: setConfirmPassword, show: showConfirm, toggle: setShowConfirm },
+                { id: 'cur-pass', label: pr.currentPassword, value: currentPassword, setter: setCurrentPassword, show: showCurrent, toggle: setShowCurrent },
+                { id: 'new-pass', label: pr.newPassword, value: newPassword, setter: setNewPassword, show: showNew, toggle: setShowNew },
+                { id: 'confirm-pass', label: pr.confirmPassword, value: confirmPassword, setter: setConfirmPassword, show: showConfirm, toggle: setShowConfirm },
               ].map(({ id, label, value, setter, show, toggle }) => (
                 <div key={id} className="space-y-1.5">
                   <Label htmlFor={id} className="text-xs">{label}</Label>
@@ -291,8 +291,8 @@ export function TechnicianProfile() {
                 className="w-full mt-2"
               >
                 {passwordSaving ? (
-                  <><Loader2 className="w-4 h-4 animate-spin mr-2" />Changing…</>
-                ) : 'Change Password'}
+                  <><Loader2 className="w-4 h-4 animate-spin mr-2" />{pr.changing}</>
+                ) : pr.changePasswordBtn}
               </Button>
             </CardContent>
           </Card>
@@ -302,7 +302,7 @@ export function TechnicianProfile() {
         {stations.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>My Assigned Stations</CardTitle>
+              <CardTitle>{pr.stationsTitle}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -326,18 +326,18 @@ export function TechnicianProfile() {
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-xs text-gray-500 mt-3">
                       <div className="p-2 bg-gray-50 rounded">
-                        <p className="text-gray-400">Code</p>
+                        <p className="text-gray-400">{pr.code}</p>
                         <p className="font-mono font-medium text-gray-800">{station.stationCode ?? '—'}</p>
                       </div>
                       <div className="p-2 bg-gray-50 rounded">
-                        <p className="text-gray-400">Total Slots</p>
+                        <p className="text-gray-400">{pr.totalSlots}</p>
                         <p className="font-medium text-gray-800">{station.totalSlots}</p>
                       </div>
                     </div>
                     {station.operatorId && (
                       <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
                         <User className="w-3 h-3" />
-                        Operator: {(station.operatorId as any).fullName}
+                        {pr.operatorLabel} {(station.operatorId as any).fullName}
                       </p>
                     )}
                   </div>
@@ -350,7 +350,7 @@ export function TechnicianProfile() {
         {/* Account details */}
         <Card>
           <CardHeader>
-            <CardTitle>Account Details</CardTitle>
+            <CardTitle>{pr.accountTitle}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid sm:grid-cols-3 gap-4 text-sm">
@@ -359,7 +359,7 @@ export function TechnicianProfile() {
                   <Shield className="w-4 h-4 text-primary" />
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500">Role</p>
+                  <p className="text-xs text-gray-500">{pr.role}</p>
                   <p className="font-medium capitalize">{user?.role}</p>
                 </div>
               </div>
@@ -368,8 +368,8 @@ export function TechnicianProfile() {
                   <CheckCircle2 className="w-4 h-4 text-success" />
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500">Account Status</p>
-                  <p className="font-medium text-success">{user?.isActive ? 'Active' : 'Inactive'}</p>
+                  <p className="text-xs text-gray-500">{pr.accountStatus}</p>
+                  <p className="font-medium text-success">{user?.isActive ? pr.active : pr.inactive}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
@@ -377,7 +377,7 @@ export function TechnicianProfile() {
                   <User className="w-4 h-4 text-gray-600" />
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500">Last Login</p>
+                  <p className="text-xs text-gray-500">{pr.lastLogin}</p>
                   <p className="font-medium">
                     {user?.lastLoginAt ? new Date(user.lastLoginAt).toLocaleDateString() : '—'}
                   </p>
