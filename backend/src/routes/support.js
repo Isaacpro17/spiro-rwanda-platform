@@ -84,8 +84,51 @@ router.patch('/tickets/:id', requireRole('rider'), [
   } catch (err) { return next(err); }
 });
 
-// Update ticket status (admin/operator)
-router.put('/tickets/:id', requireRole('admin', 'operator'), async (req, res, next) => {
+// Technician/admin/operator: list all tickets with population, filtering, pagination, and stats
+router.get('/tech/tickets', requireRole('technician', 'admin', 'operator'), async (req, res, next) => {
+  try {
+    const PAGE_SIZE = 20;
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const query = {};
+    if (req.query.status)   query.status   = req.query.status;
+    if (req.query.category) query.category = req.query.category;
+    if (req.query.search) {
+      query.$or = [
+        { ticketNumber: { $regex: req.query.search, $options: 'i' } },
+        { subject:      { $regex: req.query.search, $options: 'i' } },
+      ];
+    }
+
+    const [tickets, total, open, inProgress, resolved, closed] = await Promise.all([
+      SupportTicket.find(query)
+        .populate('riderId', 'fullName phone')
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * PAGE_SIZE)
+        .limit(PAGE_SIZE),
+      SupportTicket.countDocuments(query),
+      SupportTicket.countDocuments({ status: 'open' }),
+      SupportTicket.countDocuments({ status: 'in_progress' }),
+      SupportTicket.countDocuments({ status: 'resolved' }),
+      SupportTicket.countDocuments({ status: 'closed' }),
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        tickets,
+        total,
+        page,
+        pages: Math.ceil(total / PAGE_SIZE),
+        stats: { open, inProgress, resolved, closed },
+      },
+      message: 'Tickets retrieved',
+      error: '',
+    });
+  } catch (err) { return next(err); }
+});
+
+// Update ticket status (technician/admin/operator)
+router.put('/tickets/:id', requireRole('technician', 'admin', 'operator'), async (req, res, next) => {
   try {
     const ticket = await SupportTicket.findByIdAndUpdate(req.params.id, { $set: req.body }, { new: true });
     if (ticket?.riderId) {

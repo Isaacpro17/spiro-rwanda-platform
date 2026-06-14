@@ -52,7 +52,7 @@ export async function joinQueue(stationId, riderId) {
   }
 
   // Track which station this rider is waiting at (survives logout/login)
-  await redis.set(riderKey, stationId, { EX: QUEUE_TTL });
+  await redis.set(riderKey, stationId, 'EX', QUEUE_TTL);
 
   const queue = await redis.lrange(queueKey, 0, -1);
   const position = queue.indexOf(riderId) + 1;

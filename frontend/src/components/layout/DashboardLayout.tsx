@@ -20,6 +20,7 @@ import {
   BarChart3,
   Wrench,
   ClipboardList,
+  MessageSquare,
 } from 'lucide-react'
 import { Button } from '../ui/button'
 import { SpiroLogo } from '../ui/SpiroLogo'
@@ -68,20 +69,21 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       case 'technician':
         return [
           { icon: LayoutDashboard, label: L.technicianNav.dashboard, path: '/technician/dashboard' },
-          { icon: ClipboardList, label: L.technicianNav.tasks, path: '/technician/tasks' },
-          { icon: Battery, label: L.technicianNav.diagnostics, path: '/technician/diagnostics' },
-          { icon: History, label: L.technicianNav.history, path: '/technician/history' },
-          { icon: User, label: L.technicianNav.profile, path: '/technician/profile' },
+          { icon: ClipboardList,   label: L.technicianNav.tasks,     path: '/technician/tasks' },
+          { icon: Battery,         label: L.technicianNav.diagnostics, path: '/technician/diagnostics' },
+          { icon: History,         label: L.technicianNav.history,   path: '/technician/history' },
+          { icon: MessageSquare,   label: L.technicianNav.support,   path: '/technician/support' },
+          { icon: User,            label: L.technicianNav.profile,   path: '/technician/profile' },
         ]
       case 'admin':
         return [
-          { icon: LayoutDashboard, label: L.adminNav.dashboard, path: '/admin/dashboard' },
-          { icon: Users, label: L.adminNav.users, path: '/admin/users' },
-          { icon: MapPin, label: L.adminNav.stations, path: '/admin/stations' },
-          { icon: Battery, label: L.adminNav.batteries, path: '/admin/batteries' },
-          { icon: CreditCard, label: L.adminNav.finance, path: '/admin/finance' },
-          { icon: BarChart3, label: L.adminNav.analytics, path: '/admin/analytics' },
-          { icon: Settings, label: L.adminNav.settings, path: '/admin/settings' },
+          { icon: LayoutDashboard, label: L.adminNav.dashboard,  path: '/admin/dashboard' },
+          { icon: Users,           label: L.adminNav.users,      path: '/admin/users' },
+          { icon: MapPin,          label: L.adminNav.stations,   path: '/admin/stations' },
+          { icon: Battery,         label: L.adminNav.batteries,  path: '/admin/batteries' },
+          { icon: CreditCard,      label: L.adminNav.finance,    path: '/admin/finance' },
+          { icon: BarChart3,       label: L.adminNav.analytics,  path: '/admin/analytics' },
+          { icon: Settings,        label: L.adminNav.settings,   path: '/admin/settings' },
         ]
       default:
         return []

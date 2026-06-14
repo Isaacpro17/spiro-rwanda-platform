@@ -38,6 +38,9 @@ import { Diagnostics } from './pages/technician/Diagnostics'
 import { WorkHistory } from './pages/technician/WorkHistory'
 import { TechnicianProfile } from './pages/technician/TechnicianProfile'
 
+// Technician Pages (additional)
+import { TechnicianSupport } from './pages/technician/Support'
+
 // Admin Pages
 import { AdminDashboard } from './pages/admin/AdminDashboard'
 import { Users } from './pages/admin/Users'
@@ -234,6 +237,14 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={['technician']}>
                   <TechnicianProfile />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/technician/support"
+              element={
+                <ProtectedRoute allowedRoles={['technician']}>
+                  <TechnicianSupport />
                 </ProtectedRoute>
               }
             />
