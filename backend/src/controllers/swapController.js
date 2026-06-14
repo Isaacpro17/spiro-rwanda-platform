@@ -4,14 +4,26 @@
 
 import * as swapService from '../services/swapService.js';
 import * as queueService from '../services/queueService.js';
+import * as auditService from '../services/auditService.js';
 import SlotReservation from '../models/SlotReservation.js';
 import SwapTransaction from '../models/SwapTransaction.js';
+
+const { EVENTS } = auditService;
 
 export async function reserve(req, res, next) {
   try {
     const { stationId, reservedTime } = req.body;
     const data = await swapService.createReservation(req.user.userId, stationId, new Date(reservedTime));
     res.status(201).json({ success: true, data, message: 'Reservation confirmed.', error: '' });
+    void auditService.log({
+      eventType: EVENTS.RESERVATION_CREATED,
+      actorUserId: req.user.userId,
+      actorRole: req.user.role,
+      resourceType: 'Reservation',
+      resourceId: data._id?.toString(),
+      description: `Rider ${req.user.userId} reserved a swap slot at station ${stationId}`,
+      ipAddress: req.ip,
+    }).catch(() => {});
   } catch (err) { next(err); }
 }
 
@@ -20,6 +32,15 @@ export async function cancelReservation(req, res, next) {
     const io = req.app.get('io');
     await swapService.cancelReservation(req.params.id, 'rider', io);
     res.json({ success: true, data: {}, message: 'Reservation cancelled.', error: '' });
+    void auditService.log({
+      eventType: EVENTS.RESERVATION_CANCELLED,
+      actorUserId: req.user.userId,
+      actorRole: req.user.role,
+      resourceType: 'Reservation',
+      resourceId: req.params.id,
+      description: `Reservation ${req.params.id} cancelled by rider ${req.user.userId}`,
+      ipAddress: req.ip,
+    }).catch(() => {});
   } catch (err) { next(err); }
 }
 
@@ -29,6 +50,15 @@ export async function completeSwap(req, res, next) {
     const { riderId, stationId, depletedBatteryId, chargedBatteryId } = req.body;
     const data = await swapService.completeSwap(riderId, stationId, depletedBatteryId, chargedBatteryId, io);
     res.json({ success: true, data, message: 'Swap completed.', error: '' });
+    void auditService.log({
+      eventType: EVENTS.SWAP_COMPLETED,
+      actorUserId: req.user.userId,
+      actorRole: req.user.role,
+      resourceType: 'SwapTransaction',
+      resourceId: data._id?.toString(),
+      description: `Swap completed for rider ${riderId} at station ${stationId}`,
+      ipAddress: req.ip,
+    }).catch(() => {});
   } catch (err) { next(err); }
 }
 
@@ -47,11 +77,7 @@ export async function getGuidance(req, res, next) {
   } catch (err) { next(err); }
 }
 
-/**
- * GET /api/v1/queue/my-position
- * Returns the authenticated rider's current position in any live queue.
- * Returns null data if not in any queue.
- */
+/** GET /api/v1/queue/my-position */
 export async function getMyQueuePosition(req, res, next) {
   try {
     const data = await queueService.getMyQueuePosition(req.user.userId);
@@ -64,10 +90,7 @@ export async function getMyQueuePosition(req, res, next) {
   } catch (err) { next(err); }
 }
 
-/**
- * DELETE /api/v1/queue/:stationId/riders/:riderId
- * Operator or admin removes a specific rider from the live queue.
- */
+/** DELETE /api/v1/queue/:stationId/riders/:riderId */
 export async function removeRiderFromQueue(req, res, next) {
   try {
     const io = req.app.get('io');
@@ -98,67 +121,41 @@ export async function getQueueStatus(req, res, next) {
   } catch (err) { next(err); }
 }
 
-
-/**
- * GET /api/v1/swaps/bookings
- * Get all bookings (admin)
- */
+/** GET /api/v1/swaps/bookings — admin */
 export async function getAllBookings(req, res, next) {
   try {
     const data = await swapService.getAllBookings(req.query);
     res.json({ success: true, data, message: 'Bookings retrieved.', error: '' });
-  } catch (err) {
-    next(err);
-  }
+  } catch (err) { next(err); }
 }
 
-/**
- * GET /api/v1/swaps/bookings/stats
- * Get booking statistics (admin)
- */
+/** GET /api/v1/swaps/bookings/stats — admin */
 export async function getBookingStats(req, res, next) {
   try {
     const data = await swapService.getBookingStats();
     res.json({ success: true, data, message: 'Booking statistics retrieved.', error: '' });
-  } catch (err) {
-    next(err);
-  }
+  } catch (err) { next(err); }
 }
 
-/**
- * GET /api/v1/swaps/all
- * Get all swap transactions (admin)
- */
+/** GET /api/v1/swaps/all — admin */
 export async function getAllSwaps(req, res, next) {
   try {
     const data = await swapService.getAllSwaps(req.query);
     res.json({ success: true, data, message: 'Swaps retrieved.', error: '' });
-  } catch (err) {
-    next(err);
-  }
+  } catch (err) { next(err); }
 }
 
-/**
- * GET /api/v1/swaps/stats
- * Get swap statistics (admin)
- */
+/** GET /api/v1/swaps/stats — admin */
 export async function getSwapStats(req, res, next) {
   try {
     const data = await swapService.getSwapStats();
     res.json({ success: true, data, message: 'Swap statistics retrieved.', error: '' });
-  } catch (err) {
-    next(err);
-  }
+  } catch (err) { next(err); }
 }
 
-/**
- * GET /api/v1/swaps/my-reservations
- * Get the authenticated rider's upcoming confirmed reservations.
- */
+/** GET /api/v1/swaps/my-reservations */
 export async function getMyReservations(req, res, next) {
   try {
-    // Include reservations from up to 30 min ago so a rider at the station
-    // still sees their active slot during the 15-minute auto-cancel grace window.
     const windowStart = new Date(Date.now() - 30 * 60 * 1000);
     const data = await SlotReservation.find({
       riderId:      req.user.userId,
@@ -169,17 +166,10 @@ export async function getMyReservations(req, res, next) {
       .sort({ reservedTime: 1 });
 
     res.json({ success: true, data, message: 'Reservations retrieved.', error: '' });
-  } catch (err) {
-    next(err);
-  }
+  } catch (err) { next(err); }
 }
 
-/**
- * GET /api/v1/swaps/rider/:riderId/last-battery
- * Returns the battery a rider currently holds (chargedBatteryId from their last
- * completed swap). Accessible to operators and admins to pre-fill the depleted
- * battery field during a swap transaction.
- */
+/** GET /api/v1/swaps/rider/:riderId/last-battery */
 export async function getRiderLastBattery(req, res, next) {
   try {
     const swap = await SwapTransaction.findOne({
@@ -195,10 +185,7 @@ export async function getRiderLastBattery(req, res, next) {
   } catch (err) { next(err); }
 }
 
-/**
- * GET /api/v1/swaps/my-swaps
- * Rider-scoped swap history with optional ?limit, ?status, ?startDate filters.
- */
+/** GET /api/v1/swaps/my-swaps */
 export async function getMySwaps(req, res, next) {
   try {
     const { limit = 50, status, startDate } = req.query;
@@ -217,7 +204,5 @@ export async function getMySwaps(req, res, next) {
       .lean();
 
     res.json({ success: true, data, message: 'Swaps retrieved.', error: '' });
-  } catch (err) {
-    next(err);
-  }
+  } catch (err) { next(err); }
 }

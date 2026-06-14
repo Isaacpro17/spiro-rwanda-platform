@@ -3,6 +3,9 @@
  */
 
 import * as stationService from '../services/stationService.js';
+import * as auditService from '../services/auditService.js';
+
+const { EVENTS } = auditService;
 
 export async function listStations(req, res, next) {
   try {
@@ -22,6 +25,15 @@ export async function createStation(req, res, next) {
   try {
     const data = await stationService.createStation(req.body);
     res.status(201).json({ success: true, data, message: 'Station created.', error: '' });
+    void auditService.log({
+      eventType: EVENTS.STATION_CREATED,
+      actorUserId: req.user.userId,
+      actorRole: req.user.role,
+      resourceType: 'Station',
+      resourceId: data._id?.toString(),
+      description: `Created station "${data.name ?? ''}"`,
+      ipAddress: req.ip,
+    }).catch(() => {});
   } catch (err) { next(err); }
 }
 
@@ -29,6 +41,15 @@ export async function updateStation(req, res, next) {
   try {
     const data = await stationService.updateStation(req.params.id, req.body);
     res.json({ success: true, data, message: 'Station updated.', error: '' });
+    void auditService.log({
+      eventType: EVENTS.STATION_UPDATED,
+      actorUserId: req.user.userId,
+      actorRole: req.user.role,
+      resourceType: 'Station',
+      resourceId: req.params.id,
+      description: `Updated station ${req.params.id}`,
+      ipAddress: req.ip,
+    }).catch(() => {});
   } catch (err) { next(err); }
 }
 
@@ -45,6 +66,15 @@ export async function setStatus(req, res, next) {
     const io = req.app.get('io');
     const data = await stationService.setStationStatus(req.params.id, req.body.status, io);
     res.json({ success: true, data, message: 'Status updated.', error: '' });
+    void auditService.log({
+      eventType: EVENTS.STATION_STATUS_CHANGED,
+      actorUserId: req.user.userId,
+      actorRole: req.user.role,
+      resourceType: 'Station',
+      resourceId: req.params.id,
+      description: `Station ${req.params.id} status set to "${req.body.status}"`,
+      ipAddress: req.ip,
+    }).catch(() => {});
   } catch (err) { next(err); }
 }
 
@@ -52,6 +82,15 @@ export async function createMaintenance(req, res, next) {
   try {
     const data = await stationService.createMaintenanceRequest(req.params.id, req.user.userId, req.body);
     res.status(201).json({ success: true, data, message: 'Maintenance request created.', error: '' });
+    void auditService.log({
+      eventType: EVENTS.MAINTENANCE_REQUEST_CREATED,
+      actorUserId: req.user.userId,
+      actorRole: req.user.role,
+      resourceType: 'Station',
+      resourceId: req.params.id,
+      description: `Maintenance request created for station ${req.params.id}`,
+      ipAddress: req.ip,
+    }).catch(() => {});
   } catch (err) { next(err); }
 }
 

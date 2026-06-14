@@ -9,9 +9,11 @@ import { authenticate } from '../middleware/auth.js';
 import { requireRole } from '../middleware/rbac.js';
 import SubscriptionPlan from '../models/SubscriptionPlan.js';
 import * as subscriptionService from '../services/subscriptionService.js';
+import * as auditService from '../services/auditService.js';
 import { ValidationError } from '../middleware/errorHandler.js';
 
 const router = Router();
+const { EVENTS } = auditService;
 
 // ── GET /subscriptions/plans — list active plans (any authenticated user) ────
 router.get('/plans', authenticate, async (req, res, next) => {
@@ -45,7 +47,16 @@ router.post(
       if (!errors.isEmpty()) throw new ValidationError('Validation failed', errors.array());
 
       const data = await subscriptionService.subscribeToPlan(req.user.userId, req.body.planId);
-      return res.status(200).json({ success: true, data, message: 'Subscribed successfully', error: '' });
+      res.status(200).json({ success: true, data, message: 'Subscribed successfully', error: '' });
+      void auditService.log({
+        eventType: EVENTS.RIDER_SUBSCRIBED,
+        actorUserId: req.user.userId,
+        actorRole: req.user.role,
+        resourceType: 'Subscription',
+        resourceId: data._id?.toString(),
+        description: `Rider ${req.user.userId} subscribed to plan ${req.body.planId}`,
+        ipAddress: req.ip,
+      }).catch(() => {});
     } catch (err) {
       return next(err);
     }
@@ -67,7 +78,16 @@ router.post(
       if (!errors.isEmpty()) throw new ValidationError('Validation failed', errors.array());
 
       const plan = await SubscriptionPlan.create(req.body);
-      return res.status(201).json({ success: true, data: plan, message: 'Plan created', error: '' });
+      res.status(201).json({ success: true, data: plan, message: 'Plan created', error: '' });
+      void auditService.log({
+        eventType: EVENTS.PLAN_CREATED,
+        actorUserId: req.user.userId,
+        actorRole: req.user.role,
+        resourceType: 'SubscriptionPlan',
+        resourceId: plan._id?.toString(),
+        description: `Admin created subscription plan "${plan.name}"`,
+        ipAddress: req.ip,
+      }).catch(() => {});
     } catch (err) {
       return next(err);
     }
@@ -79,7 +99,16 @@ router.put('/plans/:id', authenticate, requireRole('admin'), async (req, res, ne
   try {
     const plan = await SubscriptionPlan.findByIdAndUpdate(req.params.id, req.body, { new: true });
     if (!plan) return res.status(404).json({ success: false, data: {}, message: 'Plan not found', error: 'not_found' });
-    return res.json({ success: true, data: plan, message: 'Plan updated', error: '' });
+    res.json({ success: true, data: plan, message: 'Plan updated', error: '' });
+    void auditService.log({
+      eventType: EVENTS.PLAN_UPDATED,
+      actorUserId: req.user.userId,
+      actorRole: req.user.role,
+      resourceType: 'SubscriptionPlan',
+      resourceId: req.params.id,
+      description: `Admin updated subscription plan "${plan.name}"`,
+      ipAddress: req.ip,
+    }).catch(() => {});
   } catch (err) {
     return next(err);
   }
