@@ -191,35 +191,39 @@ export async function getBatteryHealth(batteryId) {
     throw new NotFoundError('Battery not found');
   }
 
-  // Calculate health metrics
+  // Calculate health metrics — use safe fallbacks for fields that may be absent on older docs
   const expectedLifeCycles = 1000; // Typical Li-ion battery life
-  const healthPercentage = Math.max(0, 100 - (battery.cycleCount / expectedLifeCycles) * 100);
+  const cycleCount = battery.cycleCount ?? 0;
+  const healthPct = 100 - (cycleCount / expectedLifeCycles) * 100;
+  const healthPercentage = Math.round(Math.min(100, Math.max(0, healthPct)));
+
+  const createdMs = battery.createdAt ? new Date(battery.createdAt).getTime() : Date.now();
 
   const diagnostics = {
     batteryId: battery._id,
     serialNumber: battery.serialNumber,
-    healthStatus: battery.healthStatus,
-    healthPercentage: Math.round(healthPercentage),
-    chargeLevel: battery.chargeLevel,
-    cycleCount: battery.cycleCount,
-    expectedRemainingCycles: Math.max(0, expectedLifeCycles - battery.cycleCount),
-    lastChargedAt: battery.lastChargedAt,
-    lastSwappedAt: battery.lastSwappedAt,
-    ageInDays: Math.floor((Date.now() - battery.createdAt) / (1000 * 60 * 60 * 24)),
+    healthStatus: battery.healthStatus ?? 'good',
+    healthPercentage,
+    chargeLevel: battery.chargeLevel ?? 0,
+    cycleCount,
+    expectedRemainingCycles: Math.max(0, expectedLifeCycles - cycleCount),
+    lastChargedAt: battery.lastChargedAt ?? null,
+    lastSwappedAt: battery.lastSwapAt ?? null,
+    ageInDays: Math.floor((Date.now() - createdMs) / (1000 * 60 * 60 * 24)),
     recommendations: [],
   };
 
   // Add recommendations based on health
-  if (battery.cycleCount > 800) {
+  if (cycleCount > 800) {
     diagnostics.recommendations.push('Battery approaching end of life - consider replacement');
   }
   if (battery.healthStatus === 'degraded') {
     diagnostics.recommendations.push('Battery performance degraded - schedule maintenance');
   }
-  if (battery.healthStatus === 'faulty') {
+  if (battery.isFaulty || battery.healthStatus === 'faulty') {
     diagnostics.recommendations.push('Battery faulty - remove from service immediately');
   }
-  if (battery.chargeLevel < 20) {
+  if ((battery.chargeLevel ?? 0) < 20) {
     diagnostics.recommendations.push('Battery charge level low - recharge soon');
   }
 

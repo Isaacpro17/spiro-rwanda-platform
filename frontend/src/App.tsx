@@ -48,6 +48,7 @@ import { Stations } from './pages/admin/Stations'
 import { Batteries } from './pages/admin/Batteries'
 import { Finance } from './pages/admin/Finance'
 import { Analytics } from './pages/admin/Analytics'
+import { AdminSupport } from './pages/admin/AdminSupport'
 import { Settings } from './pages/admin/Settings'
 
 const queryClient = new QueryClient({
@@ -295,6 +296,14 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={['admin']}>
                   <Analytics />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/support"
+              element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <AdminSupport />
                 </ProtectedRoute>
               }
             />

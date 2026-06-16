@@ -83,6 +83,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           { icon: Battery,         label: L.adminNav.batteries,  path: '/admin/batteries' },
           { icon: CreditCard,      label: L.adminNav.finance,    path: '/admin/finance' },
           { icon: BarChart3,       label: L.adminNav.analytics,  path: '/admin/analytics' },
+          { icon: MessageSquare,   label: L.adminNav.support,    path: '/admin/support' },
           { icon: Settings,        label: L.adminNav.settings,   path: '/admin/settings' },
         ]
       default:

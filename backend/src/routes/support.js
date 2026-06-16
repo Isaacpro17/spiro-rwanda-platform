@@ -102,6 +102,7 @@ router.get('/tech/tickets', requireRole('technician', 'admin', 'operator'), asyn
     const [tickets, total, open, inProgress, resolved, closed] = await Promise.all([
       SupportTicket.find(query)
         .populate('riderId', 'fullName phone')
+        .populate('assignedTo', 'fullName phone')
         .sort({ createdAt: -1 })
         .skip((page - 1) * PAGE_SIZE)
         .limit(PAGE_SIZE),
