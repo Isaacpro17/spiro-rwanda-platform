@@ -56,7 +56,10 @@ function AssignModal({
 
   const { data: techs = [], isLoading: techsLoading } = useQuery<Technician[]>({
     queryKey: ['technicians'],
-    queryFn: () => api.get('/users?role=technician&limit=100'),
+    queryFn: async () => {
+      const result = await api.get<{ users: Technician[] }>('/users?role=technician&limit=100')
+      return result?.users ?? []
+    },
     staleTime: 60_000,
   })
 
