@@ -8,12 +8,40 @@ import { Badge } from '../../components/ui/badge'
 import {
   User, Shield, CheckCircle2, AlertCircle, Loader2, RefreshCw,
   Eye, EyeOff, Plus, Edit2, X, Globe, Activity,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, Trash2, Clock, MessageSquare, Lock,
 } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../contexts/AuthContext'
 import { useLanguage } from '../../contexts/LanguageContext'
 import type { User as UserType, SubscriptionPlanData } from '../../types'
+
+// ── System settings types ─────────────────────────────────────────────────────
+interface SwapTier { _id?: string; name: string; priceRwf: number; description: string }
+interface SystemSettings {
+  swapPricingTiers: SwapTier[]
+  defaultOperatingHours: { open: string; close: string }
+  smsTemplates: {
+    en: Record<string, Record<string, string>>
+    rw: Record<string, Record<string, string>>
+  }
+  otpExpiryMinutes: number
+  maxFailedAttempts: number
+  lockoutMinutes: number
+}
+
+// Map flat key 'reservation.confirmed' to nested path in settings object
+function getNestedTemplate(obj: Record<string, Record<string, string>>, key: string): string {
+  const [group, subKey] = key.split('.')
+  return obj?.[group]?.[subKey] ?? ''
+}
+function setNestedTemplate(
+  obj: Record<string, Record<string, string>>,
+  key: string,
+  value: string,
+): Record<string, Record<string, string>> {
+  const [group, subKey] = key.split('.')
+  return { ...obj, [group]: { ...(obj[group] ?? {}), [subKey]: value } }
+}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -173,6 +201,25 @@ export function Settings() {
   const [logsLoading, setLogsLoading] = useState(true)
   const [logsError, setLogsError] = useState<string | null>(null)
 
+  // System settings
+  const [sysSettings, setSysSettings] = useState<SystemSettings | null>(null)
+  const [tiers, setTiers] = useState<SwapTier[]>([])
+  const [opHours, setOpHours] = useState({ open: '06:00', close: '22:00' })
+  const [smsLang, setSmsLang] = useState<'en' | 'rw'>('en')
+  const [smsEn, setSmsEn] = useState<Record<string, Record<string, string>>>({})
+  const [smsRw, setSmsRw] = useState<Record<string, Record<string, string>>>({})
+  const [otpExpiry, setOtpExpiry] = useState(10)
+  const [maxFailed, setMaxFailed] = useState(5)
+  const [lockout, setLockout] = useState(30)
+  const [pricingSaving, setPricingSaving] = useState(false)
+  const [pricingMsg, setPricingMsg] = useState('')
+  const [hoursSaving, setHoursSaving] = useState(false)
+  const [hoursMsg, setHoursMsg] = useState('')
+  const [smsSaving, setSmsSaving] = useState(false)
+  const [smsMsg, setSmsMsg] = useState('')
+  const [secSaving, setSecSaving] = useState(false)
+  const [secMsg, setSecMsg] = useState('')
+
   // Prefill from auth context
   useEffect(() => {
     if (user) {
@@ -219,7 +266,64 @@ export function Settings() {
     }
   }, [])
 
-  useEffect(() => { loadMe(); loadPlans() }, [loadMe, loadPlans])
+  const loadSystemSettings = useCallback(async () => {
+    try {
+      const data = await api.get<SystemSettings>('/system-settings')
+      const d = data as any
+      setSysSettings(d)
+      setTiers(d.swapPricingTiers ?? [])
+      setOpHours(d.defaultOperatingHours ?? { open: '06:00', close: '22:00' })
+      setSmsEn(d.smsTemplates?.en ?? {})
+      setSmsRw(d.smsTemplates?.rw ?? {})
+      setOtpExpiry(d.otpExpiryMinutes ?? 10)
+      setMaxFailed(d.maxFailedAttempts ?? 5)
+      setLockout(d.lockoutMinutes ?? 30)
+    } catch { /* keep defaults */ }
+  }, [])
+
+  const flash = (setter: (v: string) => void, msg: string) => {
+    setter(msg)
+    setTimeout(() => setter(''), 3500)
+  }
+
+  const savePricing = async () => {
+    setPricingSaving(true)
+    try {
+      await api.put('/system-settings', { swapPricingTiers: tiers.map(({ _id, ...rest }) => rest) })
+      flash(setPricingMsg, s.pricingSaved)
+      await loadSystemSettings()
+    } catch { flash(setPricingMsg, s.sectionError) }
+    finally { setPricingSaving(false) }
+  }
+
+  const saveHours = async () => {
+    setHoursSaving(true)
+    try {
+      await api.put('/system-settings', { defaultOperatingHours: opHours })
+      flash(setHoursMsg, s.hoursSaved)
+    } catch { flash(setHoursMsg, s.sectionError) }
+    finally { setHoursSaving(false) }
+  }
+
+  const saveSmsTemplates = async () => {
+    setSmsSaving(true)
+    try {
+      await api.put('/system-settings', { smsTemplates: { en: smsEn, rw: smsRw } })
+      flash(setSmsMsg, s.smsSaved)
+    } catch { flash(setSmsMsg, s.sectionError) }
+    finally { setSmsSaving(false) }
+  }
+
+  const saveSecurity = async () => {
+    setSecSaving(true)
+    try {
+      await api.put('/system-settings', { otpExpiryMinutes: otpExpiry, maxFailedAttempts: maxFailed, lockoutMinutes: lockout })
+      flash(setSecMsg, s.securitySaved)
+    } catch { flash(setSecMsg, s.sectionError) }
+    finally { setSecSaving(false) }
+  }
+
+  useEffect(() => { loadMe(); loadPlans(); loadSystemSettings() }, [loadMe, loadPlans, loadSystemSettings])
   useEffect(() => { loadLogs(logPage) }, [logPage, loadLogs])
 
   const handleProfileSave = async () => {
@@ -444,6 +548,203 @@ export function Settings() {
                 ))}
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        {/* ── Swap Pricing Tiers ─────────────────────────────────────── */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>{s.swapPricingTitle}</CardTitle>
+                <p className="text-xs text-gray-500 mt-0.5">{s.swapPricingDesc}</p>
+              </div>
+              <Button size="sm" variant="outline" onClick={() => setTiers(prev => [...prev, { name: '', priceRwf: 0, description: '' }])}>
+                <Plus className="w-4 h-4 mr-1" />{s.addTierBtn}
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {tiers.length === 0 ? (
+              <p className="text-sm text-gray-500 text-center py-4">{s.noTiers}</p>
+            ) : (
+              tiers.map((tier, i) => (
+                <div key={i} className="grid grid-cols-[1fr_120px_1fr_auto] gap-2 items-start">
+                  <div>
+                    <Label className="text-xs">{s.tierName}</Label>
+                    <Input
+                      value={tier.name}
+                      onChange={e => setTiers(prev => prev.map((t, j) => j === i ? { ...t, name: e.target.value } : t))}
+                      placeholder={s.tierNamePlaceholder}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">{s.tierPrice}</Label>
+                    <Input
+                      type="number" min="0"
+                      value={tier.priceRwf}
+                      onChange={e => setTiers(prev => prev.map((t, j) => j === i ? { ...t, priceRwf: Number(e.target.value) } : t))}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">{s.tierDesc}</Label>
+                    <Input
+                      value={tier.description}
+                      onChange={e => setTiers(prev => prev.map((t, j) => j === i ? { ...t, description: e.target.value } : t))}
+                      placeholder={s.tierDescPlaceholder}
+                    />
+                  </div>
+                  <button
+                    onClick={() => setTiers(prev => prev.filter((_, j) => j !== i))}
+                    className="mt-5 p-2 text-gray-400 hover:text-error hover:bg-error/5 rounded-lg transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))
+            )}
+            <div className="flex items-center justify-between pt-2">
+              {pricingMsg ? (
+                <p className={`text-xs flex items-center gap-1 ${pricingMsg === s.sectionError ? 'text-error' : 'text-success'}`}>
+                  {pricingMsg === s.sectionError ? <AlertCircle className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                  {pricingMsg}
+                </p>
+              ) : <span />}
+              <Button size="sm" onClick={savePricing} disabled={pricingSaving}>
+                {pricingSaving ? <><Loader2 className="w-4 h-4 animate-spin mr-1" />{s.savingSection}</> : s.savePricing}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* ── Default Station Operating Hours ────────────────────────── */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><Clock className="w-5 h-5" />{s.operatingHoursTitle}</CardTitle>
+            <p className="text-xs text-gray-500">{s.operatingHoursDesc}</p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs">{s.openTime}</Label>
+                <Input type="time" value={opHours.open} onChange={e => setOpHours(h => ({ ...h, open: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">{s.closeTime}</Label>
+                <Input type="time" value={opHours.close} onChange={e => setOpHours(h => ({ ...h, close: e.target.value }))} />
+              </div>
+            </div>
+            <div className="flex items-center justify-between">
+              {hoursMsg ? (
+                <p className={`text-xs flex items-center gap-1 ${hoursMsg === s.sectionError ? 'text-error' : 'text-success'}`}>
+                  {hoursMsg === s.sectionError ? <AlertCircle className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                  {hoursMsg}
+                </p>
+              ) : <span />}
+              <Button size="sm" onClick={saveHours} disabled={hoursSaving}>
+                {hoursSaving ? <><Loader2 className="w-4 h-4 animate-spin mr-1" />{s.savingSection}</> : s.saveHours}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* ── SMS Notification Templates ─────────────────────────────── */}
+        {(() => {
+          const SMS_KEYS = [
+            'reservation.confirmed', 'reservation.cancelled', 'reservation.expired',
+            'payment.success', 'payment.failed', 'swap.completed',
+            'low.inventory', 'maintenance.created',
+          ] as const
+          const currentTemplates = smsLang === 'en' ? smsEn : smsRw
+          const setCurrentTemplates = smsLang === 'en' ? setSmsEn : setSmsRw
+          return (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><MessageSquare className="w-5 h-5" />{s.smsTemplatesTitle}</CardTitle>
+                <p className="text-xs text-gray-500">{s.smsTemplatesDesc}</p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Language tabs */}
+                <div className="flex gap-1 border-b border-gray-200 pb-3">
+                  {(['en', 'rw'] as const).map(lg => (
+                    <button
+                      key={lg}
+                      onClick={() => setSmsLang(lg)}
+                      className={`px-4 py-1.5 text-sm rounded-md font-medium transition-colors ${
+                        smsLang === lg ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      {lg === 'en' ? s.smsLangEn : s.smsLangRw}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Token hint */}
+                <p className="text-xs text-gray-400 bg-gray-50 px-3 py-2 rounded-lg font-mono">{s.smsTokensHint}</p>
+
+                {/* Template text areas */}
+                <div className="space-y-3">
+                  {SMS_KEYS.map(key => (
+                    <div key={key} className="space-y-1">
+                      <Label className="text-xs">{(s.templateLabels as any)[key]}</Label>
+                      <textarea
+                        rows={2}
+                        value={getNestedTemplate(currentTemplates, key)}
+                        onChange={e => setCurrentTemplates(prev => setNestedTemplate(prev, key, e.target.value))}
+                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex items-center justify-between">
+                  {smsMsg ? (
+                    <p className={`text-xs flex items-center gap-1 ${smsMsg === s.sectionError ? 'text-error' : 'text-success'}`}>
+                      {smsMsg === s.sectionError ? <AlertCircle className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                      {smsMsg}
+                    </p>
+                  ) : <span />}
+                  <Button size="sm" onClick={saveSmsTemplates} disabled={smsSaving}>
+                    {smsSaving ? <><Loader2 className="w-4 h-4 animate-spin mr-1" />{s.savingSection}</> : s.saveSms}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )
+        })()}
+
+        {/* ── Security Settings ──────────────────────────────────────── */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><Lock className="w-5 h-5" />{s.securityTitle}</CardTitle>
+            <p className="text-xs text-gray-500">{s.securityDesc}</p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid sm:grid-cols-3 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs">{s.otpExpiry}</Label>
+                <Input type="number" min="1" max="60" value={otpExpiry} onChange={e => setOtpExpiry(Number(e.target.value))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">{s.maxFailed}</Label>
+                <Input type="number" min="1" max="20" value={maxFailed} onChange={e => setMaxFailed(Number(e.target.value))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">{s.lockoutDuration}</Label>
+                <Input type="number" min="1" max="1440" value={lockout} onChange={e => setLockout(Number(e.target.value))} />
+              </div>
+            </div>
+            <div className="flex items-center justify-between">
+              {secMsg ? (
+                <p className={`text-xs flex items-center gap-1 ${secMsg === s.sectionError ? 'text-error' : 'text-success'}`}>
+                  {secMsg === s.sectionError ? <AlertCircle className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                  {secMsg}
+                </p>
+              ) : <span />}
+              <Button size="sm" onClick={saveSecurity} disabled={secSaving}>
+                {secSaving ? <><Loader2 className="w-4 h-4 animate-spin mr-1" />{s.savingSection}</> : s.saveSecurity}
+              </Button>
+            </div>
           </CardContent>
         </Card>
 

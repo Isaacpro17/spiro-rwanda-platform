@@ -13,12 +13,28 @@ import { env } from '../config/env.js';
 import { getRedisClient } from '../config/redis.js';
 import { ConflictError, AuthError, ValidationError, NotFoundError } from '../middleware/errorHandler.js';
 import logger from '../utils/logger.js';
+import { getSettings } from './settingsService.js';
 
 const BCRYPT_ROUNDS = 12;
+// Hardcoded fallbacks — overridden at runtime by system settings
 const OTP_EXPIRY_MINUTES = 10;
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_MINUTES = 30;
 const FAILED_WINDOW_MINUTES = 15;
+
+/** Read security settings from DB/cache, fall back to hardcoded defaults on any error. */
+async function securitySettings() {
+  try {
+    const s = await getSettings();
+    return {
+      otpExpiryMinutes:  s.otpExpiryMinutes  ?? OTP_EXPIRY_MINUTES,
+      maxFailedAttempts: s.maxFailedAttempts ?? MAX_FAILED_ATTEMPTS,
+      lockoutMinutes:    s.lockoutMinutes    ?? LOCKOUT_MINUTES,
+    };
+  } catch {
+    return { otpExpiryMinutes: OTP_EXPIRY_MINUTES, maxFailedAttempts: MAX_FAILED_ATTEMPTS, lockoutMinutes: LOCKOUT_MINUTES };
+  }
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -109,9 +125,10 @@ export async function registerUser(data) {
     isPhoneVerified: false,
   });
 
-  // Generate and store OTP
+  // Generate and store OTP (expiry from system settings, fallback to 10 min)
+  const { otpExpiryMinutes } = await securitySettings();
   const code = generateOtpCode();
-  const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
+  const expiresAt = new Date(Date.now() + otpExpiryMinutes * 60 * 1000);
   await Otp.create({ userId: user._id, code, expiresAt });
 
   // If registering as a rider, create their profile record immediately
@@ -171,8 +188,9 @@ export async function resendOtp(phone) {
   // Invalidate old OTPs
   await Otp.updateMany({ userId: user._id, used: false }, { used: true });
 
+  const { otpExpiryMinutes } = await securitySettings();
   const code = generateOtpCode();
-  const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
+  const expiresAt = new Date(Date.now() + otpExpiryMinutes * 60 * 1000);
   await Otp.create({ userId: user._id, code, expiresAt });
 
   logger.info(`Resent OTP for ${phone}: ${code}`, { userId: user._id });
@@ -213,8 +231,9 @@ export async function loginUser(phone, password) {
     const attempts = await redis.incr(attemptsKey);
     await redis.expire(attemptsKey, FAILED_WINDOW_MINUTES * 60);
 
-    if (attempts >= MAX_FAILED_ATTEMPTS) {
-      const lockUntil = new Date(Date.now() + LOCKOUT_MINUTES * 60 * 1000);
+    const { maxFailedAttempts, lockoutMinutes } = await securitySettings();
+    if (attempts >= maxFailedAttempts) {
+      const lockUntil = new Date(Date.now() + lockoutMinutes * 60 * 1000);
       await User.findByIdAndUpdate(user._id, {
         lockedUntil: lockUntil,
         failedLoginCount: attempts,

@@ -7,6 +7,7 @@
 import NotificationLog from '../models/NotificationLog.js';
 import User from '../models/User.js';
 import logger from '../utils/logger.js';
+import { getSettings, DEFAULTS } from './settingsService.js';
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 5 * 60 * 1000; // 5 minutes
@@ -28,7 +29,7 @@ export async function sendNotification(userId, messageKey, params = {}, channel 
   }
 
   const language = user.language || 'rw';
-  const message = resolveMessage(messageKey, params, language);
+  const message = await resolveMessage(messageKey, params, language);
 
   if (channel === 'sms' || channel === 'both') {
     await sendSms(userId, user.phone, message, language);
@@ -138,38 +139,30 @@ function sendInApp(userId, message, type, io) {
 }
 
 /**
- * Resolves a message from key + params.
- * Simple interpolation — full i18n handled in frontend.
+ * Resolves a message from key + params using DB-stored templates (with fallback).
+ * Templates use {{token}} placeholders; direct message strings pass through unchanged.
  * @param {string} key
  * @param {Object} params
  * @param {string} language
- * @returns {string}
+ * @returns {Promise<string>}
  */
-function resolveMessage(key, params, language) {
-  // Basic message templates
-  const templates = {
-    rw: {
-      'reservation.confirmed': `Reservation ya bateri yawe yemejwe kuri ${params.stationName || 'ikirunga'}. Igihe: ${params.time || ''}. Code yo guhagarika: ${params.code || ''}`,
-      'reservation.cancelled': `Reservation yawe ihagaritswe.`,
-      'reservation.expired': `Reservation yawe irangiye kubera ko ntiwagarutse mu gihe.`,
-      'payment.success': `Kwishyura kwawe kwa ${params.amount || ''} RWF byakunze. Ref: ${params.ref || ''}`,
-      'payment.failed': `Kwishyura kwawe ntibyakunze. Ongera ugerageze.`,
-      'swap.completed': `Guhindura bateri byakunze. Urakoze gukoresha Spiro!`,
-      'low.inventory': `Ikirunga ${params.stationName || ''} gifite bateri nke: ${params.count || 0} gusa.`,
-      'maintenance.created': `Gusaba gukora maintenance byakiriwe. ID: ${params.requestId || ''}`,
-    },
-    en: {
-      'reservation.confirmed': `Your battery swap reservation at ${params.stationName || 'station'} is confirmed. Time: ${params.time || ''}. Cancellation code: ${params.code || ''}`,
-      'reservation.cancelled': `Your reservation has been cancelled.`,
-      'reservation.expired': `Your reservation expired because you did not arrive in time.`,
-      'payment.success': `Payment of ${params.amount || ''} RWF successful. Ref: ${params.ref || ''}`,
-      'payment.failed': `Your payment failed. Please try again.`,
-      'swap.completed': `Battery swap completed successfully. Thank you for using Spiro!`,
-      'low.inventory': `Station ${params.stationName || ''} has low battery stock: only ${params.count || 0} remaining.`,
-      'maintenance.created': `Maintenance request received. ID: ${params.requestId || ''}`,
-    },
-  };
+async function resolveMessage(key, params, language) {
+  let templates;
+  try {
+    const settings = await getSettings();
+    templates = settings.smsTemplates ?? DEFAULTS.smsTemplates;
+  } catch {
+    templates = DEFAULTS.smsTemplates;
+  }
 
-  const lang = templates[language] || templates.en;
-  return lang[key] || key;
+  const langMap = templates[language] ?? templates.en ?? {};
+
+  // Navigate nested path: 'reservation.confirmed' → langMap.reservation.confirmed
+  const template = key.split('.').reduce((obj, k) => obj?.[k], langMap);
+
+  // No template match — key is likely a direct message string, return as-is
+  if (typeof template !== 'string') return key;
+
+  // Replace {{token}} placeholders with params
+  return template.replace(/\{\{(\w+)\}\}/g, (_, k) => String(params[k] ?? ''));
 }
