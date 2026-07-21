@@ -255,7 +255,7 @@ export interface BatteryData {
   _id: string
   serialNumber: string
   stationId?: string
-  status: 'available' | 'charging' | 'in_use' | 'faulty' | 'repair'
+  status: 'available' | 'reserved' | 'charging' | 'in_use' | 'faulty' | 'repair'
   chargeLevel: number
   isFaulty: boolean
   repairCount: number
@@ -272,6 +272,7 @@ export interface StationReservation {
   cancellationCode: string
   queuePosition: number
   status: 'confirmed' | 'cancelled' | 'expired' | 'completed'
+  heldBatteryId?: { _id: string; serialNumber: string; chargeLevel: number } | null
   createdAt: string
 }
 
@@ -316,6 +317,19 @@ export interface DailyStat {
   date: string
   swaps: number
   revenueRwf: number
+}
+
+export interface PendingTransaction {
+  _id: string
+  riderId: string
+  operatorId: { _id: string; fullName: string } | string
+  type: 'wallet_topup' | 'subscription' | 'swap_cost'
+  amountRwf: number
+  planId?: { _id: string; name: string; priceRwf: number; swapsPerMonth?: number } | null
+  status: 'pending' | 'completed' | 'expired' | 'cancelled'
+  attempts: number
+  expiresAt: string
+  createdAt: string
 }
 
 export interface ApiResponse<T> {

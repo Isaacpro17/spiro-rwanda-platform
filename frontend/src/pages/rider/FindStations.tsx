@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { DashboardLayout } from '../../components/layout/DashboardLayout'
@@ -15,19 +15,62 @@ import {
   RefreshCw,
   AlertCircle,
   Loader2,
+  X,
 } from 'lucide-react'
 import { useStations } from '../../hooks/useStations'
 import type { StationCardData } from '../../types'
 import type { RiderLocation } from '../../services/stationService'
 import { useLanguage } from '../../contexts/LanguageContext'
 
+// ── OSRM Route Fetcher ────────────────────────────────────────────────────────
+
+async function fetchOsrmRoute(
+  from: RiderLocation,
+  toLng: number,
+  toLat: number,
+): Promise<{ latlngs: L.LatLngTuple[]; distanceM: number; durationSec: number } | null> {
+  try {
+    const url =
+      `https://router.project-osrm.org/route/v1/driving/` +
+      `${from.lng},${from.lat};${toLng},${toLat}` +
+      `?overview=full&geometries=geojson`
+    const res = await fetch(url)
+    if (!res.ok) return null
+    const json = await res.json()
+    const route = json.routes?.[0]
+    if (!route) return null
+    // OSRM GeoJSON returns [lng, lat]; Leaflet needs [lat, lng]
+    const latlngs: L.LatLngTuple[] = (route.geometry.coordinates as [number, number][]).map(
+      ([lng, lat]) => [lat, lng],
+    )
+    return { latlngs, distanceM: route.distance, durationSec: route.duration }
+  } catch {
+    return null
+  }
+}
+
 // ── Station Card ─────────────────────────────────────────────────────────────
 
-function StationCard({ station, index }: { station: StationCardData; index: number }) {
+interface StationCardProps {
+  station: StationCardData
+  index: number
+  onDirections: (station: StationCardData) => void
+  isActiveRoute: boolean
+  isLoadingRoute: boolean
+  directionsLoading: boolean
+  canGetDirections: boolean
+}
+
+function StationCard({
+  station,
+  index,
+  onDirections,
+  isActiveRoute,
+  isLoadingRoute,
+  directionsLoading,
+  canGetDirections,
+}: StationCardProps) {
   const { t } = useLanguage()
-  const handleGetDirections = () => {
-    if (station.mapsUrl) window.open(station.mapsUrl, '_blank', 'noopener,noreferrer')
-  }
 
   return (
     <div
@@ -77,14 +120,31 @@ function StationCard({ station, index }: { station: StationCardData; index: numb
       </div>
 
       <Button
-        variant="outline"
+        variant={isActiveRoute ? 'default' : 'outline'}
         size="sm"
         className="w-full mt-3 h-8 text-xs"
-        onClick={handleGetDirections}
-        disabled={!station.mapsUrl}
-        aria-label={`Get directions to ${station.name}`}
+        onClick={() => onDirections(station)}
+        disabled={directionsLoading || (!canGetDirections && !isActiveRoute)}
+        aria-label={isActiveRoute ? `Clear route to ${station.name}` : `Get directions to ${station.name}`}
       >
-        {t.rider.stations.getDirections}
+        {isLoadingRoute ? (
+          <>
+            <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />
+            Calculating…
+          </>
+        ) : isActiveRoute ? (
+          <>
+            <X className="w-3 h-3 mr-1.5" />
+            Clear Route
+          </>
+        ) : !canGetDirections ? (
+          'Enable Location for Directions'
+        ) : (
+          <>
+            <Navigation className="w-3 h-3 mr-1.5" />
+            {t.rider.stations.getDirections}
+          </>
+        )}
       </Button>
     </div>
   )
@@ -112,44 +172,31 @@ function StationCardSkeleton() {
 
 // ── Leaflet Map Hook ─────────────────────────────────────────────────────────
 
+interface RouteResult {
+  distanceKm: string
+  durationMin: number
+}
+
 function useLeafletMap(
   mapRef: React.RefObject<HTMLDivElement | null>,
   riderLocation: RiderLocation | null,
 ) {
   const mapInstanceRef = useRef<L.Map | null>(null)
   const markerGroupRef = useRef<L.LayerGroup | null>(null)
+  const riderMarkerRef = useRef<L.Marker | null>(null)
+  const routeLayerRef  = useRef<L.Polyline | null>(null)
 
+  // One-time map initialization — never depends on riderLocation because
+  // geolocation is async and always null on the first render.
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return
 
-    const center: L.LatLngTuple = riderLocation
-      ? [riderLocation.lat, riderLocation.lng]
-      : [-1.9441, 30.0619]
-
-    const map = L.map(mapRef.current, { zoomControl: true }).setView(center, 13)
+    const map = L.map(mapRef.current, { zoomControl: true }).setView([-1.9441, 30.0619], 13)
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       maxZoom: 19,
     }).addTo(map)
-
-    if (riderLocation) {
-      const riderIcon = L.divIcon({
-        className: '',
-        html: `<div style="
-          width:14px;height:14px;
-          background:#3B3BA6;
-          border:3px solid white;
-          border-radius:50%;
-          box-shadow:0 0 8px rgba(59,59,166,0.5);
-        "></div>`,
-        iconSize: [14, 14],
-        iconAnchor: [7, 7],
-      })
-      L.marker([riderLocation.lat, riderLocation.lng], { icon: riderIcon })
-        .addTo(map)
-        .bindPopup('<strong>You are here</strong>')
-    }
 
     markerGroupRef.current = L.layerGroup().addTo(map)
     mapInstanceRef.current = map
@@ -158,13 +205,46 @@ function useLeafletMap(
       map.remove()
       mapInstanceRef.current = null
       markerGroupRef.current = null
+      riderMarkerRef.current = null
+      routeLayerRef.current  = null
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mapRef])
 
-  const renderPins = (stations: StationCardData[]) => {
-    const group = markerGroupRef.current
+  // Separate effect: add/update rider marker whenever location resolves.
+  useEffect(() => {
     const map = mapInstanceRef.current
+    if (!map) return
+
+    if (riderMarkerRef.current) {
+      riderMarkerRef.current.remove()
+      riderMarkerRef.current = null
+    }
+
+    if (!riderLocation) return
+
+    const riderIcon = L.divIcon({
+      className: '',
+      html: `<div style="
+        width:14px;height:14px;
+        background:#3B3BA6;
+        border:3px solid white;
+        border-radius:50%;
+        box-shadow:0 0 8px rgba(59,59,166,0.5);
+      "></div>`,
+      iconSize: [14, 14],
+      iconAnchor: [7, 7],
+    })
+
+    riderMarkerRef.current = L.marker([riderLocation.lat, riderLocation.lng], { icon: riderIcon })
+      .addTo(map)
+      .bindPopup('<strong>You are here</strong>')
+  }, [riderLocation])
+
+  // Render station pins. fitToBounds=false when a route is active so the map
+  // doesn't jump away from the drawn route when search filters change.
+  const renderPins = (stations: StationCardData[], fitToBounds = true) => {
+    const group = markerGroupRef.current
+    const map   = mapInstanceRef.current
     if (!group || !map) return
 
     group.clearLayers()
@@ -191,13 +271,7 @@ function useLeafletMap(
           <span style="font-size:12px;color:#6B7280;">${station.address}</span><br/><br/>
           <span style="color:#1D9E75;font-size:12px;">🔋 ${station.available} available</span><br/>
           ${station.distanceKm
-            ? `<span style="font-size:12px;">📍 ${station.distanceKm} km · ${station.etaMin} min</span><br/>`
-            : ''}
-          ${station.mapsUrl
-            ? `<br/><a href="${station.mapsUrl}" target="_blank" rel="noopener noreferrer"
-                style="font-size:12px;color:#3B3BA6;text-decoration:underline;">
-                Get Directions ↗
-              </a>`
+            ? `<span style="font-size:12px;">📍 ${station.distanceKm} km · ${station.etaMin} min</span>`
             : ''}
         </div>
       `
@@ -205,16 +279,63 @@ function useLeafletMap(
       L.marker([lat, lng], { icon: dot }).addTo(group).bindPopup(popup)
     })
 
-    if (stations.length > 0) {
+    if (fitToBounds && stations.length > 0) {
       const bounds = stations.map((s): L.LatLngTuple => [s.coordinates[1], s.coordinates[0]])
       map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 })
     }
   }
 
-  return { renderPins }
+  const setRoute = async (
+    from: RiderLocation,
+    toLng: number,
+    toLat: number,
+  ): Promise<RouteResult | null> => {
+    const map = mapInstanceRef.current
+    if (!map) return null
+
+    // Remove any previous route polyline
+    if (routeLayerRef.current) {
+      routeLayerRef.current.remove()
+      routeLayerRef.current = null
+    }
+
+    const result = await fetchOsrmRoute(from, toLng, toLat)
+    if (!result) return null
+
+    routeLayerRef.current = L.polyline(result.latlngs, {
+      color: '#2563EB',
+      weight: 5,
+      opacity: 0.85,
+      lineJoin: 'round',
+    }).addTo(map)
+
+    // Zoom the map to show the full route with comfortable padding
+    map.fitBounds(routeLayerRef.current.getBounds(), { padding: [60, 60] })
+
+    return {
+      distanceKm: (result.distanceM / 1000).toFixed(1),
+      durationMin: Math.ceil(result.durationSec / 60),
+    }
+  }
+
+  const clearRoute = () => {
+    if (routeLayerRef.current) {
+      routeLayerRef.current.remove()
+      routeLayerRef.current = null
+    }
+  }
+
+  return { renderPins, setRoute, clearRoute }
 }
 
 // ── Page Component ───────────────────────────────────────────────────────────
+
+interface ActiveDirections {
+  stationId:   string
+  stationName: string
+  distanceKm:  string
+  durationMin: number
+}
 
 export function FindStations() {
   const { t } = useLanguage()
@@ -228,37 +349,86 @@ export function FindStations() {
     isLoading,
     error,
     setSearchQuery,
-    refresh,
+    refresh: doRefresh,
   } = useStations()
 
-  const mapContainerRef = useRef<HTMLDivElement>(null)
-  const { renderPins } = useLeafletMap(mapContainerRef, riderLocation)
+  const [activeDirections, setActiveDirections] = useState<ActiveDirections | null>(null)
+  const [directionsLoading, setDirectionsLoading] = useState(false)
+  const [routeError, setRouteError] = useState<string | null>(null)
 
+  const mapContainerRef = useRef<HTMLDivElement>(null)
+  const { renderPins, setRoute, clearRoute } = useLeafletMap(mapContainerRef, riderLocation)
+
+  // Re-render station pins whenever stations or loading state changes.
+  // When a route is active, skip fitBounds so the map stays on the route view.
   useEffect(() => {
-    if (!isLoading) renderPins(stations)
-  }, [stations, isLoading]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (!isLoading) renderPins(stations, activeDirections === null)
+  }, [stations, isLoading, activeDirections]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleGetDirections = async (station: StationCardData) => {
+    // Toggle: clicking the active station clears the route
+    if (activeDirections?.stationId === station.id) {
+      clearRoute()
+      setActiveDirections(null)
+      return
+    }
+
+    if (!riderLocation) return
+
+    setDirectionsLoading(true)
+    setRouteError(null)
+
+    // Show station name immediately while route calculates
+    setActiveDirections({
+      stationId:   station.id,
+      stationName: station.name,
+      distanceKm:  '…',
+      durationMin: 0,
+    })
+
+    const [lng, lat] = station.coordinates
+    const result = await setRoute(riderLocation, lng, lat)
+    setDirectionsLoading(false)
+
+    if (result) {
+      setActiveDirections({
+        stationId:   station.id,
+        stationName: station.name,
+        distanceKm:  result.distanceKm,
+        durationMin: result.durationMin,
+      })
+    } else {
+      clearRoute()
+      setActiveDirections(null)
+      setRouteError('Could not calculate route. Check your connection and try again.')
+    }
+  }
+
+  const handleClearDirections = () => {
+    clearRoute()
+    setActiveDirections(null)
+  }
+
+  const refresh = () => {
+    clearRoute()
+    setActiveDirections(null)
+    setRouteError(null)
+    doRefresh()
+  }
 
   return (
     <DashboardLayout>
       <div className="space-y-4">
 
-        {/* Page header — consistent with other pages */}
+        {/* Page header */}
         <div>
           <h1 className="text-3xl font-bold text-gray-900">{st.title}</h1>
           <p className="text-gray-600 mt-1">{st.subtitle}</p>
         </div>
 
-        {/*
-          Two-column grid.
-          - The grid row height is driven by whichever column is taller.
-          - Left (list): natural/auto height, scrollable internally.
-          - Right (map): stretches to match the row with `h-full`,
-            capped at viewport height minus navbar+padding so it never
-            overflows and causes scrolling under the navbar.
-        */}
         <div className="grid lg:grid-cols-3 gap-6 items-start">
 
-          {/* ── Station List (left column) ─────────────────────── */}
+          {/* ── Station List ──────────────────────────────────── */}
           <div className="lg:col-span-1">
             <Card>
               <CardHeader className="pb-3">
@@ -303,7 +473,15 @@ export function FindStations() {
                   <p className="text-xs text-gray-400 mb-3">{st.enableLocation}</p>
                 )}
 
-                {/* Scrollable station list — max height matches the map panel */}
+                {/* Route error */}
+                {routeError && (
+                  <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-error/5 border border-error/20 rounded-lg text-xs text-error">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{routeError}</span>
+                  </div>
+                )}
+
+                {/* Scrollable station list */}
                 <div
                   className="space-y-2.5 overflow-y-auto pr-0.5"
                   style={{ maxHeight: 'calc(100vh - 280px)' }}
@@ -353,7 +531,16 @@ export function FindStations() {
 
                   {/* Station cards */}
                   {!isLoading && !error && stations.map((station, idx) => (
-                    <StationCard key={station.id} station={station} index={idx} />
+                    <StationCard
+                      key={station.id}
+                      station={station}
+                      index={idx}
+                      onDirections={handleGetDirections}
+                      isActiveRoute={activeDirections?.stationId === station.id}
+                      isLoadingRoute={directionsLoading && activeDirections?.stationId === station.id}
+                      directionsLoading={directionsLoading}
+                      canGetDirections={riderLocation !== null}
+                    />
                   ))}
 
                   {/* Filter count */}
@@ -369,22 +556,13 @@ export function FindStations() {
             </Card>
           </div>
 
-          {/* ── Map Panel (right column, 2/3 width) ───────────── */}
+          {/* ── Map Panel ─────────────────────────────────────── */}
           <div className="lg:col-span-2">
-            {/*
-              isolate     → creates a new stacking context so the map's
-                            internal z-indices (400+) stay scoped inside
-                            and never bleed above the navbar (z-30).
-              overflow-hidden on the Card clips Leaflet tile edges cleanly.
-              Height = viewport minus navbar (64px) + page padding (32px top
-              + 32px bottom) + page header (~80px) + grid gap (~24px) = ~232px.
-              Using calc keeps the map flush with the bottom of the viewport.
-            */}
             <div
               className="isolate rounded-xl overflow-hidden shadow-sm border border-gray-200"
               style={{ height: 'calc(100vh - 240px)', minHeight: '440px' }}
             >
-              {/* Leaflet mount — fills the entire container */}
+              {/* Leaflet mount */}
               <div
                 id="station-map"
                 ref={mapContainerRef}
@@ -411,6 +589,39 @@ export function FindStations() {
                 </div>
               )}
 
+              {/* Active route info — top right */}
+              {activeDirections && (
+                <div className="absolute top-3 right-3 z-[400] bg-white/95 backdrop-blur-sm rounded-xl px-3 py-2.5 shadow-lg border border-blue-200 max-w-[220px]">
+                  <div className="flex items-start gap-2">
+                    <div className="mt-0.5 w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+                      <Navigation className="w-3.5 h-3.5 text-blue-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-gray-900 truncate leading-snug">
+                        {activeDirections.stationName}
+                      </p>
+                      {activeDirections.distanceKm !== '…' ? (
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {activeDirections.distanceKm} km · {activeDirections.durationMin} min
+                        </p>
+                      ) : (
+                        <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
+                          <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                          Calculating…
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      onClick={handleClearDirections}
+                      className="text-gray-400 hover:text-gray-600 transition-colors shrink-0 mt-0.5"
+                      aria-label="Clear route"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Legend — bottom right */}
               {!isLoading && (
                 <div className="absolute bottom-6 right-3 z-[400] bg-white/90 backdrop-blur-sm rounded-xl px-3 py-2 shadow-lg border border-gray-100 text-xs flex flex-col gap-1.5">
@@ -427,6 +638,12 @@ export function FindStations() {
                     <span className="inline-block w-3 h-3 rounded-full bg-[#3B3BA6] border-2 border-white shadow-sm shrink-0" />
                     <span className="text-gray-600">{st.legendYou}</span>
                   </div>
+                  {activeDirections && (
+                    <div className="flex items-center gap-2 pt-0.5 border-t border-gray-100 mt-0.5">
+                      <span className="inline-block w-6 h-[3px] rounded-full bg-blue-600 shrink-0" />
+                      <span className="text-gray-600">Route</span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

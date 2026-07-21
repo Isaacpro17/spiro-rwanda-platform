@@ -20,6 +20,7 @@ import type { StationDetail, BatteryData } from '../../types'
 
 function statusVariant(status: string) {
   if (status === 'available') return 'success'
+  if (status === 'reserved') return 'secondary'
   if (status === 'charging') return 'warning'
   if (status === 'in_use') return 'default'
   return 'destructive'

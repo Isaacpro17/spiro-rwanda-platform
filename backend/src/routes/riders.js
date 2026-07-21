@@ -29,4 +29,10 @@ router.post('/loyalty/redeem',
 router.get('/data-export', riderController.exportData);
 router.delete('/account', riderController.deleteAccount);
 
+// ── PIN-gated transaction confirmation ───────────────────────────────────────
+router.get('/transactions/pending', riderController.getPendingTransaction);
+router.post('/transactions/:id/confirm', [
+  body('pin').matches(/^\d{4}$/).withMessage('PIN must be exactly 4 digits'),
+], riderController.confirmTransaction);
+
 export default router;

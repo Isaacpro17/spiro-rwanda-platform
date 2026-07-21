@@ -280,6 +280,49 @@ export async function getTransactionStats() {
 }
 
 /**
+ * Operator-initiated cash wallet top-up for a rider.
+ * Creates an auditable Payment record (provider: cash) and credits the wallet immediately.
+ * @param {string} riderId
+ * @param {number} amountRwf
+ * @param {string} operatorId - the operator performing the top-up
+ * @returns {Promise<{ paymentId: string, transactionId: string, newWalletBalance: number }>}
+ */
+export async function operatorWalletTopup(riderId, amountRwf, operatorId) {
+  if (amountRwf < 100) throw new ValidationError('Minimum top-up amount is RWF 100');
+  if (amountRwf > 500_000) throw new ValidationError('Maximum single top-up is RWF 500,000');
+
+  const transactionId = `OPT${Date.now()}${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
+
+  const payment = await Payment.create({
+    transactionId,
+    provider: 'cash',
+    amountRwf,
+    riderId,
+    type: 'wallet_topup',
+    status: 'success',
+  });
+
+  const updatedProfile = await RiderProfile.findOneAndUpdate(
+    { userId: riderId },
+    { $inc: { walletBalance: amountRwf } },
+    { new: true, upsert: true },
+  );
+
+  logger.info('Operator wallet top-up processed', {
+    riderId,
+    amountRwf,
+    operatorId,
+    newBalance: updatedProfile.walletBalance,
+  });
+
+  return {
+    paymentId: payment._id.toString(),
+    transactionId,
+    newWalletBalance: updatedProfile.walletBalance,
+  };
+}
+
+/**
  * Process refund (admin)
  * @param {string} transactionId
  * @param {string} reason

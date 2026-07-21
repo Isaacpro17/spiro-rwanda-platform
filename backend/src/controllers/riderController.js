@@ -3,6 +3,10 @@
  */
 
 import * as riderService from '../services/riderService.js';
+import * as pendingTxService from '../services/pendingTransactionService.js';
+import * as auditService from '../services/auditService.js';
+
+const { EVENTS } = auditService;
 
 export async function getProfile(req, res, next) {
   try {
@@ -56,5 +60,35 @@ export async function deleteAccount(req, res, next) {
   try {
     await riderService.deleteRiderAccount(req.user.userId);
     res.json({ success: true, data: {}, message: 'Account deletion initiated.', error: '' });
+  } catch (err) { next(err); }
+}
+
+/** GET /riders/transactions/pending — get the rider's current pending transaction (for modal) */
+export async function getPendingTransaction(req, res, next) {
+  try {
+    const tx = await pendingTxService.getPendingForRider(req.user.userId);
+    res.json({ success: true, data: tx ?? null, message: '', error: '' });
+  } catch (err) { next(err); }
+}
+
+/** POST /riders/transactions/:id/confirm — rider enters PIN to apply the transaction */
+export async function confirmTransaction(req, res, next) {
+  try {
+    const { pin } = req.body;
+    if (!pin || !/^\d{4}$/.test(pin)) {
+      return res.status(400).json({ success: false, data: {}, message: 'PIN must be exactly 4 digits', error: 'bad_request' });
+    }
+    const result = await pendingTxService.confirm(req.params.id, req.user.userId, pin);
+    res.json({ success: true, data: result, message: 'Transaction confirmed successfully!', error: '' });
+
+    void auditService.log({
+      eventType: EVENTS.WALLET_TOPUP,
+      actorUserId: req.user.userId,
+      actorRole: req.user.role,
+      resourceType: 'PendingTransaction',
+      resourceId: req.params.id,
+      description: `Rider confirmed ${result.type} transaction — RWF ${result.amountRwf}`,
+      ipAddress: req.ip,
+    }).catch(() => {});
   } catch (err) { next(err); }
 }

@@ -1,0 +1,39 @@
+2026-06-21T15:40:07.488+02:00 [[32minfo[39m]: Environment variables validated
+2026-06-21T15:40:07.541+02:00 [[32minfo[39m]: Redis client connected {"url":"redis://localhost:6379"}
+2026-06-21T15:40:07.552+02:00 [[32minfo[39m]: MongoDB connected {"uri":"mongodb://localhost:27017/spiro-rwanda"}
+2026-06-21T15:40:07.587+02:00 [[32minfo[39m]: Redis client ready
+2026-06-21T15:40:07.589+02:00 [[32minfo[39m]: Redis client initialized and connected
+2026-06-21T15:40:07.606+02:00 [[32minfo[39m]: Spiro Rwanda Platform backend started {"port":5000,"environment":"development","pid":12636}
+2026-06-21T15:40:25.311+02:00 [[32minfo[39m]: User logged in {"userId":{"buffer":{"0":106,"1":47,"2":196,"3":148,"4":42,"5":215,"6":59,"7":4,"8":113,"9":158,"10":129,"11":151}},"role":"admin"}
+2026-06-21T15:40:25.323+02:00 [[32minfo[39m]: HTTP request {"method":"POST","path":"/login","status":200,"durationMs":290,"ip":"::1"}
+2026-06-21T15:40:25.421+02:00 [[32minfo[39m]: HTTP request {"method":"GET","path":"/","status":200,"durationMs":2,"ip":"::1"}
+2026-06-21T15:40:25.576+02:00 [[32minfo[39m]: HTTP request {"method":"PUT","path":"/","status":200,"durationMs":16,"ip":"::1"}
+2026-06-21T15:40:25.610+02:00 [[32minfo[39m]: HTTP request {"method":"GET","path":"/","status":200,"durationMs":4,"ip":"::1"}
+2026-06-21T15:40:25.896+02:00 [[32minfo[39m]: User logged in {"userId":{"buffer":{"0":106,"1":47,"2":196,"3":148,"4":42,"5":215,"6":59,"7":4,"8":113,"9":158,"10":129,"11":153}},"role":"technician"}
+2026-06-21T15:40:25.897+02:00 [[32minfo[39m]: HTTP request {"method":"POST","path":"/login","status":200,"durationMs":270,"ip":"::1"}
+2026-06-21T15:40:25.911+02:00 [[33mwarn[39m]: RBAC violation {"userId":"6a2fc4942ad73b04719e8199","role":"technician","requiredRoles":["admin"],"path":"/","method":"GET","ip":"::1"}
+2026-06-21T15:40:25.912+02:00 [[33mwarn[39m]: Client error {"error":"You do not have permission to access this resource","errorCode":"FORBIDDEN_ERROR","path":"/api/v1/system-settings","method":"GET"}
+2026-06-21T15:40:25.912+02:00 [[32minfo[39m]: HTTP request {"method":"GET","path":"/api/v1/system-settings","status":403,"durationMs":2,"ip":"::1"}
+2026-06-21T15:40:38.097+02:00 [[32minfo[39m]: User logged in {"userId":{"buffer":{"0":106,"1":47,"2":196,"3":148,"4":42,"5":215,"6":59,"7":4,"8":113,"9":158,"10":129,"11":151}},"role":"admin"}
+2026-06-21T15:40:38.098+02:00 [[32minfo[39m]: HTTP request {"method":"POST","path":"/login","status":200,"durationMs":264,"ip":"::1"}
+2026-06-21T15:40:38.207+02:00 [[32minfo[39m]: HTTP request {"method":"PUT","path":"/","status":200,"durationMs":4,"ip":"::1"}
+2026-06-21T15:44:38.503+02:00 [[33mwarn[39m]: Client error {"error":"Token has expired","errorCode":"AUTH_ERROR","path":"/api/v1/auth/me","method":"GET"}
+2026-06-21T15:44:38.504+02:00 [[32minfo[39m]: HTTP request {"method":"GET","path":"/api/v1/auth/me","status":401,"durationMs":3,"ip":"::1"}
+2026-06-21T15:44:38.508+02:00 [[33mwarn[39m]: Client error {"error":"Token has expired","errorCode":"AUTH_ERROR","path":"/api/v1/auth/me","method":"GET"}
+2026-06-21T15:44:38.509+02:00 [[32minfo[39m]: HTTP request {"method":"GET","path":"/api/v1/auth/me","status":401,"durationMs":1,"ip":"::1"}
+2026-06-21T15:44:42.828+02:00 [[32minfo[39m]: User logged in {"userId":{"buffer":{"0":106,"1":47,"2":196,"3":148,"4":42,"5":215,"6":59,"7":4,"8":113,"9":158,"10":129,"11":151}},"role":"admin"}
+2026-06-21T15:44:42.830+02:00 [[32minfo[39m]: HTTP request {"method":"POST","path":"/login","status":200,"durationMs":678,"ip":"::1"}
+2026-06-21T15:44:42.996+02:00 [[32minfo[39m]: HTTP request {"method":"GET","path":"/stats","status":304,"durationMs":41,"ip":"::1"}
+2026-06-21T15:44:43.018+02:00 [[32minfo[39m]: HTTP request {"method":"GET","path":"/logs","status":200,"durationMs":61,"ip":"::1"}
+2026-06-21T15:44:43.043+02:00 [[32minfo[39m]: HTTP request {"method":"GET","path":"/stats","status":200,"durationMs":12,"ip":"::1"}
+2026-06-21T15:44:43.060+02:00 [[32minfo[39m]: HTTP request {"method":"GET","path":"/kpis","status":200,"durationMs":107,"ip":"::1"}
+2026-06-21T15:44:43.065+02:00 [[32minfo[39m]: HTTP request {"method":"GET","path":"/logs","status":304,"durationMs":18,"ip":"::1"}
+2026-06-21T15:44:43.068+02:00 [[32minfo[39m]: HTTP request {"method":"GET","path":"/kpis","status":304,"durationMs":1,"ip":"::1"}
+2026-06-21T15:44:45.524+02:00 [[32minfo[39m]: HTTP request {"method":"GET","path":"/me","status":200,"durationMs":10,"ip":"::1"}
+2026-06-21T15:44:45.526+02:00 [[32minfo[39m]: HTTP request {"method":"GET","path":"/plans","status":304,"durationMs":11,"ip":"::1"}
+2026-06-21T15:44:45.533+02:00 [[32minfo[39m]: HTTP request {"method":"GET","path":"/logs","status":200,"durationMs":17,"ip":"::1"}
+2026-06-21T15:44:45.545+02:00 [[32minfo[39m]: HTTP request {"method":"GET","path":"/","status":200,"durationMs":31,"ip":"::1"}
+2026-06-21T15:44:45.556+02:00 [[32minfo[39m]: HTTP request {"method":"GET","path":"/me","status":304,"durationMs":15,"ip":"::1"}
+2026-06-21T15:44:45.558+02:00 [[32minfo[39m]: HTTP request {"method":"GET","path":"/plans","status":304,"durationMs":18,"ip":"::1"}
+2026-06-21T15:44:45.566+02:00 [[32minfo[39m]: HTTP request {"method":"GET","path":"/logs","status":304,"durationMs":23,"ip":"::1"}
+2026-06-21T15:44:45.569+02:00 [[32minfo[39m]: HTTP request {"method":"GET","path":"/","status":304,"durationMs":2,"ip":"::1"}

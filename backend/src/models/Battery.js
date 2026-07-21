@@ -10,7 +10,7 @@ const BatterySchema = new Schema(
   {
     serialNumber:  { type: String, required: true, unique: true, trim: true },
     stationId:     { type: Schema.Types.ObjectId, ref: 'Station' },
-    status:        { type: String, enum: ['available', 'charging', 'in_use', 'faulty', 'repair'], default: 'charging' },
+    status:        { type: String, enum: ['available', 'reserved', 'charging', 'in_use', 'faulty', 'repair'], default: 'charging' },
     chargeLevel:   { type: Number, min: 0, max: 100, default: 0 },
     cycleCount:    { type: Number, default: 0 },
     healthStatus:  { type: String, enum: ['good', 'degraded', 'faulty'], default: 'good' },

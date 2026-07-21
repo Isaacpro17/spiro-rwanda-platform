@@ -20,7 +20,8 @@ router.get('/stats', requireRole('admin'), swapController.getSwapStats);
 
 // Rider routes
 router.post('/reserve', requireRole('rider'), swapController.reserve);
-router.delete('/reserve/:id', requireRole('rider', 'operator', 'admin'), swapController.cancelReservation);
+router.delete('/reserve/:id', requireRole('rider'), swapController.cancelReservation);
+router.patch('/reserve/:id/complete', requireRole('operator', 'admin'), swapController.completeReservationByOperator);
 router.get('/my-reservations', requireRole('rider'), swapController.getMyReservations);
 router.get('/my-swaps', requireRole('rider'), swapController.getMySwaps);
 router.post('/complete', requireRole('operator', 'admin'), swapController.completeSwap);

@@ -30,6 +30,7 @@ import { Reservations } from './pages/operator/Reservations'
 import { Maintenance } from './pages/operator/Maintenance'
 import { OperatorAnalytics } from './pages/operator/OperatorAnalytics'
 import { OperatorProfile } from './pages/operator/OperatorProfile'
+import { WalletTopup } from './pages/operator/WalletTopup'
 
 // Technician Pages
 import { TechnicianDashboard } from './pages/technician/TechnicianDashboard'
@@ -49,6 +50,7 @@ import { Batteries } from './pages/admin/Batteries'
 import { Finance } from './pages/admin/Finance'
 import { Analytics } from './pages/admin/Analytics'
 import { AdminSupport } from './pages/admin/AdminSupport'
+import { Subscriptions } from './pages/admin/Subscriptions'
 import { Settings } from './pages/admin/Settings'
 
 const queryClient = new QueryClient({
@@ -192,6 +194,14 @@ function App() {
               }
             />
             <Route
+              path="/operator/wallet-topup"
+              element={
+                <ProtectedRoute allowedRoles={['operator']}>
+                  <WalletTopup />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/operator/profile"
               element={
                 <ProtectedRoute allowedRoles={['operator']}>
@@ -304,6 +314,14 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={['admin']}>
                   <AdminSupport />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/subscriptions"
+              element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <Subscriptions />
                 </ProtectedRoute>
               }
             />

@@ -8,7 +8,7 @@ import { Select } from '../../components/ui/select'
 import { Badge } from '../../components/ui/badge'
 import {
   Search, RefreshCw, Loader2, AlertCircle, CheckCircle2,
-  Users, Zap, User, Battery, Calendar, Clock, ChevronRight, UserX,
+  Users, Zap, User, Battery, Calendar, Clock, ChevronRight, UserX, X,
 } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../contexts/AuthContext'
@@ -83,6 +83,7 @@ export function SwapProcess() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [rightTab, setRightTab] = useState<RightTab>('reservations')
+  const [reservationSearch, setReservationSearch] = useState('')
 
   // Form state
   const [riderPhone, setRiderPhone] = useState('')
@@ -117,7 +118,7 @@ export function SwapProcess() {
 
   const loadReservations = useCallback(async (stationId: string) => {
     try {
-      const result = await api.get<any>(`/stations/${stationId}/reservations?upcoming=true&limit=20`)
+      const result = await api.get<any>(`/stations/${stationId}/reservations?upcoming=true&limit=100`)
       setReservations(result?.reservations ?? [])
     } catch { /* ignore */ }
   }, [])
@@ -208,9 +209,36 @@ export function SwapProcess() {
     setDepletedBattery('')
     setDepletedBatteryResolvedId(null)
     setDepletedBatterySuggestion(null)
-    setChargedBattery('')
     setFormError('')
     setRiderError('')
+
+    // If a battery was pre-held for this reservation, inject it into the
+    // available list (it has status 'reserved' so the API won't return it)
+    // and pre-select it so the operator just needs to confirm.
+    const held = res.heldBatteryId
+    if (held?._id) {
+      setChargedBattery(held._id)
+      setAvailableBatteries((prev) => {
+        if (prev.some((b) => b._id === held._id)) return prev
+        return [
+          {
+            _id: held._id,
+            serialNumber: held.serialNumber,
+            chargeLevel: held.chargeLevel,
+            status: 'reserved' as const,
+            stationId: undefined,
+            isFaulty: false,
+            repairCount: 0,
+            createdAt: '',
+            updatedAt: '',
+          },
+          ...prev,
+        ]
+      })
+    } else {
+      setChargedBattery('')
+    }
+
     fetchLastBattery(riderObj._id)
   }
 
@@ -272,11 +300,11 @@ export function SwapProcess() {
       })
       setSwapResult(result)
 
-      // Cancel the reservation now that the swap is done
+      // Mark the reservation completed (not cancelled — the swap was fulfilled)
       if (activeReservationId) {
         try {
-          await api.delete(`/swaps/reserve/${activeReservationId}`)
-        } catch { /* best-effort — auto-expire will clean up anyway */ }
+          await api.patch(`/swaps/reserve/${activeReservationId}/complete`)
+        } catch { /* best-effort — reservation will auto-expire if this fails */ }
       }
 
       await Promise.all([
@@ -307,6 +335,23 @@ export function SwapProcess() {
     setFormError('')
     setSwapResult(null)
   }
+
+  const handleRightTabChange = (newTab: RightTab) => {
+    setRightTab(newTab)
+    setReservationSearch('')
+  }
+
+  const filteredReservations = reservationSearch.trim()
+    ? reservations.filter((res) => {
+        const q = reservationSearch.trim().toLowerCase()
+        const riderObj = res.riderId as { _id: string; fullName: string; phone: string }
+        return (
+          riderObj?.fullName?.toLowerCase().includes(q) ||
+          riderObj?.phone?.includes(q) ||
+          res.cancellationCode?.toLowerCase().includes(q)
+        )
+      })
+    : reservations
 
   if (isLoading) {
     return (
@@ -365,6 +410,22 @@ export function SwapProcess() {
                   <div className="flex items-center gap-2 p-3 bg-primary/5 border border-primary/20 rounded-lg text-sm">
                     <Calendar className="w-4 h-4 text-primary shrink-0" />
                     <span className="text-primary font-medium">{sw.fromReservation}</span>
+                  </div>
+                )}
+
+                {/* Held battery banner — shown when a battery was pre-reserved for this rider */}
+                {activeReservationId && chargedBattery && availableBatteries.find(b => b._id === chargedBattery && b.status === 'reserved') && (
+                  <div className="flex items-center gap-2 p-3 bg-success/5 border border-success/20 rounded-lg text-sm">
+                    <Battery className="w-4 h-4 text-success shrink-0" />
+                    <div>
+                      <span className="text-success font-medium">Battery pre-held for this rider</span>
+                      {availableBatteries.find(b => b._id === chargedBattery) && (
+                        <span className="text-gray-600 ml-1.5 font-mono text-xs">
+                          {availableBatteries.find(b => b._id === chargedBattery)!.serialNumber}
+                          {' '}({availableBatteries.find(b => b._id === chargedBattery)!.chargeLevel}% charged)
+                        </span>
+                      )}
+                    </div>
                   </div>
                 )}
 
@@ -486,7 +547,7 @@ export function SwapProcess() {
             {/* Tab bar */}
             <div className="flex border-b px-4 pt-4">
               <button
-                onClick={() => setRightTab('reservations')}
+                onClick={() => handleRightTabChange('reservations')}
                 className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
                   rightTab === 'reservations'
                     ? 'border-primary text-primary'
@@ -504,7 +565,7 @@ export function SwapProcess() {
                 )}
               </button>
               <button
-                onClick={() => setRightTab('queue')}
+                onClick={() => handleRightTabChange('queue')}
                 className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
                   rightTab === 'queue'
                     ? 'border-primary text-primary'
@@ -537,71 +598,117 @@ export function SwapProcess() {
                       <p className="text-xs text-gray-400">{sw.noReservationsDesc}</p>
                     </div>
                   ) : (
-                    <div className="space-y-2">
-                      {reservations.map((res) => {
-                        const riderObj = res.riderId as { _id: string; fullName: string; phone: string }
-                        const near = isNearNow(res.reservedTime)
-                        const isActive = activeReservationId === res._id
-                        return (
-                          <div
-                            key={res._id}
-                            className={`p-3 border rounded-xl transition-colors ${
-                              isActive
-                                ? 'border-primary bg-primary/5'
-                                : near
-                                ? 'border-warning/50 bg-warning/5'
-                                : 'border-gray-200 hover:border-gray-300'
-                            }`}
+                    <>
+                      {/* Search bar */}
+                      <div className="relative mb-3">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                        <Input
+                          placeholder={sw.resSearchPlaceholder}
+                          value={reservationSearch}
+                          onChange={(e) => setReservationSearch(e.target.value)}
+                          className="pl-8 h-8 text-sm pr-8"
+                          aria-label="Search reservations"
+                        />
+                        {reservationSearch && (
+                          <button
+                            onClick={() => setReservationSearch('')}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                            aria-label="Clear search"
                           >
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex items-start gap-2.5 flex-1 min-w-0">
-                                <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center shrink-0 mt-0.5">
-                                  <User className="w-4 h-4 text-primary" />
-                                </div>
-                                <div className="min-w-0">
-                                  <p className="text-sm font-semibold text-gray-900 truncate">
-                                    {riderObj?.fullName ?? 'Unknown Rider'}
-                                  </p>
-                                  {riderObj?.phone && (
-                                    <p className="text-xs text-gray-500">{riderObj.phone}</p>
-                                  )}
-                                  <div className="flex items-center gap-2 mt-1">
-                                    <div className="flex items-center gap-1 text-xs text-gray-500">
-                                      <Clock className="w-3 h-3" />
-                                      {formatTime(res.reservedTime)}
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Match count when filtering */}
+                      {reservationSearch && (
+                        <p className="text-xs text-gray-500 mb-2">
+                          {filteredReservations.length} of {reservations.length} {sw.resSearchCount}
+                        </p>
+                      )}
+
+                      {/* No match */}
+                      {filteredReservations.length === 0 ? (
+                        <div className="flex flex-col items-center gap-2 py-8 text-center">
+                          <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+                            <Search className="w-5 h-5 text-gray-400" />
+                          </div>
+                          <p className="text-sm text-gray-600">{sw.resNoMatch}</p>
+                          <button
+                            onClick={() => setReservationSearch('')}
+                            className="text-xs text-primary hover:underline"
+                          >
+                            {sw.resClearSearch}
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-2 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 420px)' }}>
+                          {filteredReservations.map((res) => {
+                            const riderObj = res.riderId as { _id: string; fullName: string; phone: string }
+                            const near = isNearNow(res.reservedTime)
+                            const isActive = activeReservationId === res._id
+                            return (
+                              <div
+                                key={res._id}
+                                className={`p-3 border rounded-xl transition-colors ${
+                                  isActive
+                                    ? 'border-primary bg-primary/5'
+                                    : near
+                                    ? 'border-warning/50 bg-warning/5'
+                                    : 'border-gray-200 hover:border-gray-300'
+                                }`}
+                              >
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="flex items-start gap-2.5 flex-1 min-w-0">
+                                    <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center shrink-0 mt-0.5">
+                                      <User className="w-4 h-4 text-primary" />
                                     </div>
-                                    <span className={`text-xs font-medium ${
-                                      new Date(res.reservedTime).getTime() < Date.now()
-                                        ? 'text-error'
-                                        : near
-                                        ? 'text-warning'
-                                        : 'text-gray-500'
-                                    }`}>
-                                      {timeUntil(res.reservedTime)}
-                                    </span>
+                                    <div className="min-w-0">
+                                      <p className="text-sm font-semibold text-gray-900 truncate">
+                                        {riderObj?.fullName ?? 'Unknown Rider'}
+                                      </p>
+                                      {riderObj?.phone && (
+                                        <p className="text-xs text-gray-500">{riderObj.phone}</p>
+                                      )}
+                                      <div className="flex items-center gap-2 mt-1">
+                                        <div className="flex items-center gap-1 text-xs text-gray-500">
+                                          <Clock className="w-3 h-3" />
+                                          {formatTime(res.reservedTime)}
+                                        </div>
+                                        <span className={`text-xs font-medium ${
+                                          new Date(res.reservedTime).getTime() < Date.now()
+                                            ? 'text-error'
+                                            : near
+                                            ? 'text-warning'
+                                            : 'text-gray-500'
+                                        }`}>
+                                          {timeUntil(res.reservedTime)}
+                                        </span>
+                                      </div>
+                                      <p className="text-xs text-gray-400 font-mono mt-0.5">
+                                        {sw.resCode} {res.cancellationCode}
+                                      </p>
+                                    </div>
                                   </div>
-                                  <p className="text-xs text-gray-400 font-mono mt-0.5">
-                                    {sw.resCode} {res.cancellationCode}
-                                  </p>
+                                  <Button
+                                    size="sm"
+                                    variant={isActive ? 'default' : 'outline'}
+                                    onClick={() => handleProcessReservation(res)}
+                                    className="shrink-0 text-xs"
+                                  >
+                                    {isActive ? (
+                                      sw.resSelected
+                                    ) : (
+                                      <>{sw.resProcess} <ChevronRight className="w-3 h-3 ml-0.5" /></>
+                                    )}
+                                  </Button>
                                 </div>
                               </div>
-                              <Button
-                                size="sm"
-                                variant={isActive ? 'default' : 'outline'}
-                                onClick={() => handleProcessReservation(res)}
-                                className="shrink-0 text-xs"
-                              >
-                                {isActive ? (
-                                  sw.resSelected
-                                ) : (
-                                  <>{sw.resProcess} <ChevronRight className="w-3 h-3 ml-0.5" /></>
-                                )}
-                              </Button>
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </>
                   )}
                 </>
               )}

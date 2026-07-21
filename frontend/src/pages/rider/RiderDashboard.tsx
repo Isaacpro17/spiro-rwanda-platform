@@ -16,12 +16,10 @@ import { useLanguage } from '../../contexts/LanguageContext'
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface DashboardStats {
-  batteryLevel: number | null          // 0–100
   walletBalance: number | null         // RWF
   swapsThisMonth: number | null
   activePlan: string | null
   firstName: string
-  currentBatterySerial: string | null  // serial number of battery rider currently holds
 }
 
 interface RecentSwapCard {
@@ -102,17 +100,14 @@ async function loadDashboard(): Promise<{
   recentSwaps: RecentSwapCard[]
   nearestStations: NearestStationCard[]
 }> {
-  // Profile gives us battery level, wallet balance, subscription plan & name
   const profileRes = await api.get<{
     user: { fullName: string }
-    batteryLevel: number | null
     profile: {
       walletBalance?: number
       subscriptionPlanId?: { name?: string } | null
     } | null
   }>('/riders/profile')
 
-  // Swaps this month — filter client-side from my-swaps
   const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()
   const [monthSwaps, recentSwapsRaw, stationsRaw, riderLocation] = await Promise.all([
     api.get<any[]>(`/swaps/my-swaps?startDate=${startOfMonth}&status=completed`).catch(() => []),
@@ -121,19 +116,11 @@ async function loadDashboard(): Promise<{
     stationService.getRiderLocation(),
   ])
 
-  // The chargedBatteryId from the most recent completed swap is the battery
-  // the rider currently holds — it becomes the depleted battery on the next swap.
-  const lastSwap = Array.isArray(recentSwapsRaw) ? recentSwapsRaw[0] : null
-  const currentBatterySerial: string | null =
-    (lastSwap?.chargedBatteryId as any)?.serialNumber ?? null
-
   const stats: DashboardStats = {
-    firstName:            profileRes.user?.fullName?.split(' ')[0] || 'Rider',
-    batteryLevel:         profileRes.batteryLevel ?? null,
-    walletBalance:        profileRes.profile?.walletBalance  ?? null,
-    swapsThisMonth:       Array.isArray(monthSwaps) ? monthSwaps.length : null,
-    activePlan:           profileRes.profile?.subscriptionPlanId?.name ?? 'No Plan',
-    currentBatterySerial,
+    firstName:      profileRes.user?.fullName?.split(' ')[0] || 'Rider',
+    walletBalance:  profileRes.profile?.walletBalance ?? null,
+    swapsThisMonth: Array.isArray(monthSwaps) ? monthSwaps.length : null,
+    activePlan:     profileRes.profile?.subscriptionPlanId?.name ?? 'No Plan',
   }
 
   const recentSwaps: RecentSwapCard[] = (recentSwapsRaw ?? []).map((s: any) => ({
@@ -236,32 +223,11 @@ export function RiderDashboard() {
         )}
 
         {/* Stat Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {isLoading ? (
-            [1,2,3,4].map(i => <StatSkeleton key={i} />)
+            [1,2,3].map(i => <StatSkeleton key={i} />)
           ) : (
             <>
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">{d.myBattery}</p>
-                      <p className="text-2xl font-bold text-gray-900 mt-1">
-                        {stats?.batteryLevel != null ? `${stats.batteryLevel}%` : '—'}
-                      </p>
-                      {stats?.currentBatterySerial && (
-                        <p className="text-xs font-mono text-gray-400 mt-0.5">
-                          SN: {stats.currentBatterySerial}
-                        </p>
-                      )}
-                    </div>
-                    <div className="w-12 h-12 bg-success/10 rounded-full flex items-center justify-center">
-                      <Battery className="w-6 h-6 text-success" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
               <Card>
                 <CardContent className="pt-6">
                   <div className="flex items-center justify-between">

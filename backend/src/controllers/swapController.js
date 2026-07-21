@@ -44,6 +44,24 @@ export async function cancelReservation(req, res, next) {
   } catch (err) { next(err); }
 }
 
+/** PATCH /swaps/reserve/:id/complete — operator marks reservation fulfilled after swap */
+export async function completeReservationByOperator(req, res, next) {
+  try {
+    const io = req.app.get('io');
+    await swapService.markReservationCompleted(req.params.id, io);
+    res.json({ success: true, data: {}, message: 'Reservation marked as completed.', error: '' });
+    void auditService.log({
+      eventType: EVENTS.RESERVATION_CANCELLED, // closest existing event — swap audit covers the swap itself
+      actorUserId: req.user.userId,
+      actorRole: req.user.role,
+      resourceType: 'Reservation',
+      resourceId: req.params.id,
+      description: `Reservation ${req.params.id} fulfilled and marked completed by operator ${req.user.userId}`,
+      ipAddress: req.ip,
+    }).catch(() => {});
+  } catch (err) { next(err); }
+}
+
 export async function completeSwap(req, res, next) {
   try {
     const io = req.app.get('io');

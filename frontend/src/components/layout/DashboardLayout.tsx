@@ -21,10 +21,13 @@ import {
   Wrench,
   ClipboardList,
   MessageSquare,
+  Wallet,
+  BadgeCheck,
 } from 'lucide-react'
 import { Button } from '../ui/button'
 import { SpiroLogo } from '../ui/SpiroLogo'
 import { useLanguage } from '../../contexts/LanguageContext'
+import PendingTransactionModal from '../PendingTransactionModal'
 
 interface DashboardLayoutProps {
   children: ReactNode
@@ -64,6 +67,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           { icon: ClipboardList, label: L.operatorNav.reservations, path: '/operator/reservations' },
           { icon: Wrench, label: L.operatorNav.maintenance, path: '/operator/maintenance' },
           { icon: BarChart3, label: L.operatorNav.analytics, path: '/operator/analytics' },
+          { icon: Wallet, label: L.operatorNav.walletTopup, path: '/operator/wallet-topup' },
           { icon: User, label: L.operatorNav.profile, path: '/operator/profile' },
         ]
       case 'technician':
@@ -77,14 +81,15 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         ]
       case 'admin':
         return [
-          { icon: LayoutDashboard, label: L.adminNav.dashboard,  path: '/admin/dashboard' },
-          { icon: Users,           label: L.adminNav.users,      path: '/admin/users' },
-          { icon: MapPin,          label: L.adminNav.stations,   path: '/admin/stations' },
-          { icon: Battery,         label: L.adminNav.batteries,  path: '/admin/batteries' },
-          { icon: CreditCard,      label: L.adminNav.finance,    path: '/admin/finance' },
-          { icon: BarChart3,       label: L.adminNav.analytics,  path: '/admin/analytics' },
-          { icon: MessageSquare,   label: L.adminNav.support,    path: '/admin/support' },
-          { icon: Settings,        label: L.adminNav.settings,   path: '/admin/settings' },
+          { icon: LayoutDashboard, label: L.adminNav.dashboard,      path: '/admin/dashboard' },
+          { icon: Users,           label: L.adminNav.users,          path: '/admin/users' },
+          { icon: MapPin,          label: L.adminNav.stations,       path: '/admin/stations' },
+          { icon: Battery,         label: L.adminNav.batteries,      path: '/admin/batteries' },
+          { icon: CreditCard,      label: L.adminNav.finance,        path: '/admin/finance' },
+          { icon: BarChart3,       label: L.adminNav.analytics,      path: '/admin/analytics' },
+          { icon: MessageSquare,   label: L.adminNav.support,        path: '/admin/support' },
+          { icon: BadgeCheck,      label: L.adminNav.subscriptions,  path: '/admin/subscriptions' },
+          { icon: Settings,        label: L.adminNav.settings,       path: '/admin/settings' },
         ]
       default:
         return []
@@ -189,6 +194,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
+
+      {/* Rider PIN confirmation modal — only mounted for riders */}
+      {user?.role === 'rider' && <PendingTransactionModal />}
     </div>
   )
 }

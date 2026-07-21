@@ -69,3 +69,48 @@ export async function getCurrentSubscription(riderId) {
     .lean();
   return profile?.subscriptionPlanId || null;
 }
+
+/**
+ * Returns a paginated list of all riders who currently have a subscription plan.
+ * @param {Object} query - { page?, limit?, planId? }
+ * @returns {Promise<{ subscribers, total, page, limit, pages }>}
+ */
+export async function getSubscribers(query = {}) {
+  const page = parseInt(query.page) || 1;
+  const limit = parseInt(query.limit) || 20;
+  const filter = { subscriptionPlanId: { $ne: null } };
+  if (query.planId) filter.subscriptionPlanId = query.planId;
+
+  const [subscribers, total] = await Promise.all([
+    RiderProfile.find(filter)
+      .populate('userId', 'fullName phone email isActive')
+      .populate('subscriptionPlanId', 'name priceRwf swapsPerMonth')
+      .sort({ updatedAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean(),
+    RiderProfile.countDocuments(filter),
+  ]);
+
+  return { subscribers, total, page, limit, pages: Math.ceil(total / limit) };
+}
+
+/**
+ * Admin removes a rider's subscription plan (does not issue a refund).
+ * @param {string} riderId
+ * @returns {Promise<{ riderId: string, previousPlanId: string }>}
+ */
+export async function removeSubscription(riderId) {
+  const profile = await RiderProfile.findOne({ userId: riderId });
+  if (!profile) throw new NotFoundError('Rider profile not found');
+  if (!profile.subscriptionPlanId) throw new ValidationError('This rider has no active subscription');
+
+  const previousPlanId = profile.subscriptionPlanId.toString();
+  await RiderProfile.findOneAndUpdate(
+    { userId: riderId },
+    { $unset: { subscriptionPlanId: 1 } },
+  );
+
+  logger.info('Subscription removed by admin', { riderId, previousPlanId });
+  return { riderId, previousPlanId };
+}

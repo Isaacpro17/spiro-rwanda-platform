@@ -66,6 +66,33 @@ export async function createReservation(riderId, stationId, requestedTime) {
     queuePosition: queueCount + 1,
   });
 
+  // Best-effort battery hold: atomically lock one available battery for this rider.
+  // findOneAndUpdate is atomic — no race condition between concurrent reservations.
+  // If no battery is available right now, the reservation is still created (graceful degradation).
+  try {
+    const held = await Battery.findOneAndUpdate(
+      { stationId, status: 'available' },
+      { $set: { status: 'reserved' } },
+      { new: true },
+    );
+    if (held) {
+      await Promise.all([
+        SlotReservation.findByIdAndUpdate(reservation._id, { heldBatteryId: held._id }),
+        // Decrement station counter so operators see true walk-in availability
+        Station.findByIdAndUpdate(stationId, { $inc: { availableBatteries: -1 } }),
+      ]);
+      reservation.heldBatteryId = held._id;
+      logger.info('Battery held for reservation', { reservationId: reservation._id, batteryId: held._id });
+    } else {
+      logger.info('No battery to hold for reservation (stock too low)', { reservationId: reservation._id });
+    }
+  } catch (holdErr) {
+    logger.warn('Battery hold failed — reservation created without hold', {
+      reservationId: reservation._id,
+      error: holdErr.message,
+    });
+  }
+
   logger.info('Slot reservation created', { reservationId: reservation._id, riderId, stationId });
   return reservation;
 }
@@ -93,11 +120,16 @@ export async function completeSwap(riderId, stationId, depletedBatteryId, charge
   if (!stationDoc)       throw new NotFoundError('Station not found');
   if (!depletedBattery)  throw new NotFoundError('Depleted battery not found — verify the serial number');
   if (!chargedBattery)   throw new NotFoundError('Charged battery not found');
-  if (chargedBattery.status !== 'available') {
+  // 'reserved' batteries are pre-held for a specific rider's reservation — also valid for swapping
+  if (chargedBattery.status !== 'available' && chargedBattery.status !== 'reserved') {
     throw new ValidationError(
       `Battery ${chargedBattery.serialNumber} is not available for swapping (current status: ${chargedBattery.status})`
     );
   }
+
+  // If the battery was reserved (held), availableBatteries was already decremented at hold time.
+  // Skip the decrement during the swap to avoid double-counting.
+  const batteryWasHeld = chargedBattery.status === 'reserved';
 
   // ── Write phase ─────────────────────────────────────────────────────────────
   const startTime = new Date();
@@ -124,7 +156,11 @@ export async function completeSwap(riderId, stationId, depletedBatteryId, charge
       lastSwapAt: new Date(),
     }),
     Station.findByIdAndUpdate(stationId, {
-      $inc: { availableBatteries: -1, chargingBatteries: 1 },
+      $inc: {
+        // Only decrement if the battery wasn't already held (hold already decremented the counter)
+        ...(batteryWasHeld ? {} : { availableBatteries: -1 }),
+        chargingBatteries: 1,
+      },
     }),
   ]);
 
@@ -162,6 +198,26 @@ export async function completeSwap(riderId, stationId, depletedBatteryId, charge
 }
 
 /**
+ * Marks a reservation as completed by the operator after a successful swap.
+ * Distinct from cancellation — the slot was fulfilled, not abandoned.
+ * @param {string} reservationId
+ * @param {import('socket.io').Server} io
+ * @returns {Promise<void>}
+ */
+export async function markReservationCompleted(reservationId, io) {
+  const reservation = await SlotReservation.findById(reservationId);
+  if (!reservation) throw new NotFoundError('Reservation not found');
+  if (reservation.status !== 'confirmed') throw new ValidationError('Reservation is not active');
+
+  await SlotReservation.findByIdAndUpdate(reservationId, {
+    status: 'completed',
+  });
+
+  await broadcastQueueUpdate(reservation.stationId.toString(), io);
+  logger.info('Reservation marked completed by operator', { reservationId });
+}
+
+/**
  * Cancels a reservation.
  * @param {string} reservationId
  * @param {string} cancelledBy - 'rider' | 'system'
@@ -172,6 +228,24 @@ export async function cancelReservation(reservationId, cancelledBy, io) {
   const reservation = await SlotReservation.findById(reservationId);
   if (!reservation) throw new NotFoundError('Reservation not found');
   if (reservation.status !== 'confirmed') throw new ValidationError('Reservation is not active');
+
+  // Release the held battery back to the available pool
+  if (reservation.heldBatteryId) {
+    try {
+      await Battery.findByIdAndUpdate(reservation.heldBatteryId, { status: 'available' });
+      await Station.findByIdAndUpdate(reservation.stationId, { $inc: { availableBatteries: 1 } });
+      logger.info('Held battery released on cancellation', {
+        reservationId,
+        batteryId: reservation.heldBatteryId,
+      });
+    } catch (releaseErr) {
+      logger.warn('Could not release held battery on cancellation', {
+        reservationId,
+        batteryId: reservation.heldBatteryId,
+        error: releaseErr.message,
+      });
+    }
+  }
 
   await SlotReservation.findByIdAndUpdate(reservationId, {
     status: 'cancelled',

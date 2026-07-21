@@ -237,6 +237,7 @@ export async function getStationReservations(stationId, query = {}) {
   const [reservations, total] = await Promise.all([
     SlotReservation.find(filter)
       .populate('riderId', 'fullName phone')
+      .populate('heldBatteryId', 'serialNumber chargeLevel status')
       .sort({ reservedTime: 1 })
       .skip((page - 1) * limit)
       .limit(limit)

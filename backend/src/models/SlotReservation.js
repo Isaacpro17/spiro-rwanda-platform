@@ -15,6 +15,7 @@ const SlotReservationSchema = new Schema(
     cancelledBy:      { type: String, enum: ['rider', 'system'] },
     cancelledAt:      { type: Date },
     queuePosition:    { type: Number },
+    heldBatteryId:    { type: Schema.Types.ObjectId, ref: 'Battery', default: null },
   },
   { timestamps: true }
 );

@@ -114,4 +114,33 @@ router.put('/plans/:id', authenticate, requireRole('admin'), async (req, res, ne
   }
 });
 
+// ── GET /subscriptions/subscribers — admin: paginated list of subscribed riders ─
+router.get('/subscribers', authenticate, requireRole('admin'), async (req, res, next) => {
+  try {
+    const data = await subscriptionService.getSubscribers(req.query);
+    return res.json({ success: true, data, message: 'Subscribers retrieved', error: '' });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// ── DELETE /subscriptions/subscriber/:riderId — admin removes a rider's plan ────
+router.delete('/subscriber/:riderId', authenticate, requireRole('admin'), async (req, res, next) => {
+  try {
+    const result = await subscriptionService.removeSubscription(req.params.riderId);
+    res.json({ success: true, data: result, message: 'Subscription removed', error: '' });
+    void auditService.log({
+      eventType: EVENTS.SUBSCRIPTION_REMOVED,
+      actorUserId: req.user.userId,
+      actorRole: req.user.role,
+      resourceType: 'RiderProfile',
+      resourceId: req.params.riderId,
+      description: `Admin ${req.user.userId} removed subscription for rider ${req.params.riderId}`,
+      ipAddress: req.ip,
+    }).catch(() => {});
+  } catch (err) {
+    return next(err);
+  }
+});
+
 export default router;
