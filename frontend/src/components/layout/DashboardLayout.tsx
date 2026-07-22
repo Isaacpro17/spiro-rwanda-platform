@@ -23,6 +23,7 @@ import {
   MessageSquare,
   Wallet,
   BadgeCheck,
+  FileText,
 } from 'lucide-react'
 import { Button } from '../ui/button'
 import { SpiroLogo } from '../ui/SpiroLogo'
@@ -68,6 +69,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           { icon: Wrench, label: L.operatorNav.maintenance, path: '/operator/maintenance' },
           { icon: BarChart3, label: L.operatorNav.analytics, path: '/operator/analytics' },
           { icon: Wallet, label: L.operatorNav.walletTopup, path: '/operator/wallet-topup' },
+          { icon: FileText, label: L.operatorNav.reports, path: '/operator/reports' },
           { icon: User, label: L.operatorNav.profile, path: '/operator/profile' },
         ]
       case 'technician':
@@ -89,6 +91,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           { icon: BarChart3,       label: L.adminNav.analytics,      path: '/admin/analytics' },
           { icon: MessageSquare,   label: L.adminNav.support,        path: '/admin/support' },
           { icon: BadgeCheck,      label: L.adminNav.subscriptions,  path: '/admin/subscriptions' },
+          { icon: FileText,        label: L.adminNav.reports,        path: '/admin/reports' },
           { icon: Settings,        label: L.adminNav.settings,       path: '/admin/settings' },
         ]
       default:

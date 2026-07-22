@@ -202,7 +202,7 @@ export function Settings() {
   const [logsError, setLogsError] = useState<string | null>(null)
 
   // System settings
-  const [sysSettings, setSysSettings] = useState<SystemSettings | null>(null)
+  const [_sysSettings, setSysSettings] = useState<SystemSettings | null>(null)
   const [tiers, setTiers] = useState<SwapTier[]>([])
   const [opHours, setOpHours] = useState({ open: '06:00', close: '22:00' })
   const [smsLang, setSmsLang] = useState<'en' | 'rw'>('en')

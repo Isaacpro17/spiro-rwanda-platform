@@ -272,6 +272,7 @@ export const rw: Translations = {
         maintenance: 'Gusana',
         analytics: 'Isesengura',
         walletTopup: 'Shyiramo Amafaranga',
+        reports: 'Raporo',
         profile: 'Umwirondoro',
       },
       technicianNav: {
@@ -291,6 +292,7 @@ export const rw: Translations = {
         analytics: 'Isesengura',
         support: 'Inkunga',
         subscriptions: 'Kwiyandikisha',
+        reports: 'Raporo',
         settings: 'Igenamiterere',
       },
     },

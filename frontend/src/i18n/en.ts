@@ -261,6 +261,7 @@ export const en = {
         maintenance: 'Maintenance',
         analytics: 'Analytics',
         walletTopup: 'Wallet Top-up',
+        reports: 'Reports',
         profile: 'Profile',
       },
       technicianNav: {
@@ -280,6 +281,7 @@ export const en = {
         analytics: 'Analytics',
         support: 'Support',
         subscriptions: 'Subscriptions',
+        reports: 'Reports',
         settings: 'Settings',
       },
     },

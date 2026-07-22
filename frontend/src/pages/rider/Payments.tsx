@@ -8,8 +8,9 @@ import { Badge } from '../../components/ui/badge'
 import {
   CreditCard, Smartphone, TrendingUp, AlertCircle,
   CheckCircle, Loader2, RefreshCw, ChevronLeft, ChevronRight,
-  Download, XCircle,
+  Download, XCircle, FileText,
 } from 'lucide-react'
+import { downloadReport } from '../../services/reportService'
 import { api } from '../../lib/api'
 import { useLanguage } from '../../contexts/LanguageContext'
 import type { PaymentRecord, RiderProfileData } from '../../types'
@@ -29,10 +30,6 @@ function formatDate(iso: string): string {
 
 function providerLabel(p: string): string {
   return p === 'mtn_momo' ? 'MTN MoMo' : p === 'airtel_money' ? 'Airtel Money' : 'Cash'
-}
-
-function typeLabel(t: string): string {
-  return t === 'wallet_topup' ? 'Top-up' : t === 'subscription' ? 'Subscription' : 'Swap'
 }
 
 // ── Status badge variant ──────────────────────────────────────────────────────
@@ -194,6 +191,18 @@ export function Payments() {
 
   const refresh = () => { fetchBalance(); fetchHistory(page) }
 
+  const [downloadingReport, setDownloadingReport] = useState(false)
+  const handleDownloadReport = async () => {
+    try {
+      setDownloadingReport(true)
+      await downloadReport('payment_statement')
+    } catch (err: any) {
+      console.error('Failed to download report', err)
+    } finally {
+      setDownloadingReport(false)
+    }
+  }
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -204,10 +213,20 @@ export function Payments() {
             <h1 className="text-3xl font-bold text-gray-900">{p.title}</h1>
             <p className="text-gray-600 mt-1">{p.subtitle}</p>
           </div>
-          <button
-            onClick={refresh}
-            className="p-2 rounded-lg text-gray-400 hover:text-primary hover:bg-primary/5 transition-colors"
-            aria-label="Refresh payments"
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDownloadReport}
+              disabled={downloadingReport}
+              className="gap-2 h-auto py-1.5 px-3 mr-2"
+            >
+              {downloadingReport ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
+              Download PDF
+            </Button>
+            <button
+              onClick={refresh}
+              className="p-2 rounded-lg text-gray-400 hover:text-primary hover:bg-primary/5 transition-colors"
+              aria-label="Refresh payments"
           >
             <RefreshCw className="w-4 h-4" />
           </button>

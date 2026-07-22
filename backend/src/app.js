@@ -27,6 +27,7 @@ import subscriptionRouter from './routes/subscriptions.js';
 import operatorRouter from './routes/operators.js';
 import technicianRouter from './routes/technicians.js';
 import systemSettingsRouter from './routes/systemSettings.js';
+import reportRouter from './routes/reports.js';
 import logger from './utils/logger.js';
 
 /**
@@ -107,6 +108,7 @@ export function createApp() {
   app.use('/api/v1/operators', operatorRouter);
   app.use('/api/v1/technicians', technicianRouter);
   app.use('/api/v1/system-settings', systemSettingsRouter);
+  app.use('/api/v1/reports', reportRouter);
 
   // ── 404 Handler ─────────────────────────────────────────────────────────────
   app.use((req, res) => {

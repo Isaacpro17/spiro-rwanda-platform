@@ -137,8 +137,8 @@ export function Subscriptions() {
 
   const loadPlans = useCallback(async () => {
     try {
-      const res = await api.get<any>('/subscriptions/plans')
-      setPlans(res.data.data ?? [])
+      const plansData = await api.get<any>('/subscriptions/plans')
+      setPlans(plansData ?? [])
     } catch { /* non-critical */ }
   }, [])
 
@@ -151,8 +151,7 @@ export function Subscriptions() {
         limit: String(PAGE_SIZE),
         ...(planFilter ? { planId: planFilter } : {}),
       })
-      const res = await api.get<any>(`/subscriptions/subscribers?${params}`)
-      const data = res.data.data
+      const data = await api.get<any>(`/subscriptions/subscribers?${params}`)
       setSubscribers(data.subscribers ?? [])
       setTotal(data.total ?? 0)
     } catch (err: any) {

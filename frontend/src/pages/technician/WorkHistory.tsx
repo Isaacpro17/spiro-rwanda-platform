@@ -8,8 +8,9 @@ import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
 import {
   CheckCircle2, AlertCircle, RefreshCw, Loader2, Clock,
-  MapPin, ChevronLeft, ChevronRight, TrendingUp, Wrench, Calendar,
+  MapPin, ChevronLeft, ChevronRight, TrendingUp, Wrench, Calendar, FileText,
 } from 'lucide-react'
+import { downloadReport } from '../../services/reportService'
 import { api } from '../../lib/api'
 import { useLanguage } from '../../contexts/LanguageContext'
 import type { StationMaintenanceRequest } from '../../types'
@@ -124,6 +125,18 @@ export function WorkHistory() {
 
   const totalPages = Math.ceil(total / PAGE_SIZE)
 
+  const [downloadingReport, setDownloadingReport] = useState(false)
+  const handleDownloadReport = async () => {
+    try {
+      setDownloadingReport(true)
+      await downloadReport('work_history', { startDate, endDate })
+    } catch (err: any) {
+      console.error('Failed to download report', err)
+    } finally {
+      setDownloadingReport(false)
+    }
+  }
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -134,12 +147,24 @@ export function WorkHistory() {
             <h1 className="text-3xl font-bold text-gray-900">{h.title}</h1>
             <p className="text-gray-600 mt-1">{h.subtitle}</p>
           </div>
-          <button
-            onClick={() => loadHistory(page)}
-            className="p-2 rounded-lg text-gray-400 hover:text-primary hover:bg-primary/5 transition-colors"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDownloadReport}
+              disabled={downloadingReport}
+              className="gap-2 h-auto py-1.5 px-3"
+            >
+              {downloadingReport ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
+              Download PDF
+            </Button>
+            <button
+              onClick={() => loadHistory(page)}
+              className="p-2 rounded-lg text-gray-400 hover:text-primary hover:bg-primary/5 transition-colors"
+            >
+              <RefreshCw className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {error && (

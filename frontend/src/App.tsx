@@ -31,6 +31,7 @@ import { Maintenance } from './pages/operator/Maintenance'
 import { OperatorAnalytics } from './pages/operator/OperatorAnalytics'
 import { OperatorProfile } from './pages/operator/OperatorProfile'
 import { WalletTopup } from './pages/operator/WalletTopup'
+import { OperatorReports } from './pages/operator/Reports'
 
 // Technician Pages
 import { TechnicianDashboard } from './pages/technician/TechnicianDashboard'
@@ -52,6 +53,7 @@ import { Analytics } from './pages/admin/Analytics'
 import { AdminSupport } from './pages/admin/AdminSupport'
 import { Subscriptions } from './pages/admin/Subscriptions'
 import { Settings } from './pages/admin/Settings'
+import { AdminReports } from './pages/admin/Reports'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -202,6 +204,14 @@ function App() {
               }
             />
             <Route
+              path="/operator/reports"
+              element={
+                <ProtectedRoute allowedRoles={['operator']}>
+                  <OperatorReports />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/operator/profile"
               element={
                 <ProtectedRoute allowedRoles={['operator']}>
@@ -330,6 +340,14 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={['admin']}>
                   <Settings />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/reports"
+              element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <AdminReports />
                 </ProtectedRoute>
               }
             />

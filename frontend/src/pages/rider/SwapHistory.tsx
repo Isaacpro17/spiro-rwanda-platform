@@ -9,8 +9,9 @@ import { Label } from '../../components/ui/label'
 import { Select } from '../../components/ui/select'
 import {
   History, AlertCircle, RefreshCw, Download, Loader2,
-  ChevronLeft, ChevronRight, Filter, X,
+  ChevronLeft, ChevronRight, Filter, X, FileText,
 } from 'lucide-react'
+import { downloadReport } from '../../services/reportService'
 import { api } from '../../lib/api'
 import { useLanguage } from '../../contexts/LanguageContext'
 
@@ -152,6 +153,19 @@ export function SwapHistory() {
     }
   }
 
+  const [downloadingReport, setDownloadingReport] = useState(false)
+  const handleDownloadReport = async () => {
+    try {
+      setDownloadingReport(true)
+      await downloadReport('swap_history', appliedFilters)
+    } catch (err: any) {
+      console.error('Failed to download report', err)
+      // Optionally show a toast error here
+    } finally {
+      setDownloadingReport(false)
+    }
+  }
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -176,6 +190,16 @@ export function SwapHistory() {
               Filter
               {hasActiveFilters && <span className="w-1.5 h-1.5 bg-white rounded-full" />}
             </button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDownloadReport}
+              disabled={downloadingReport}
+              className="gap-2 h-auto py-1.5 px-3"
+            >
+              {downloadingReport ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
+              Download PDF
+            </Button>
             <button
               onClick={() => load(page, appliedFilters)}
               className="p-2 rounded-lg text-gray-400 hover:text-primary hover:bg-primary/5 transition-colors"

@@ -44,12 +44,10 @@ function AssignModal({
   ticket,
   onClose,
   sa,
-  ts,
 }: {
   ticket: Ticket
   onClose: () => void
   sa: ReturnType<typeof useLanguage>['t']['admin']['support']
-  ts: ReturnType<typeof useLanguage>['t']['technician']['support']
 }) {
   const qc = useQueryClient()
   const [techId, setTechId] = useState(ticket.assignedTo?._id ?? '')
@@ -446,7 +444,6 @@ export function AdminSupport() {
           ticket={assignTarget}
           onClose={() => setAssignTarget(null)}
           sa={sa}
-          ts={ts}
         />
       )}
       {resolveTarget && (
