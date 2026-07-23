@@ -2,43 +2,45 @@
  * @file paypackService.js
  * @description Paypack Rwanda payment gateway integration.
  *
- * Provides:
- *  - cashin()      → Send USSD push to rider's phone to collect payment
- *  - getTransaction() → Poll Paypack for the latest status of a transaction
+ * Correct usage per official README:
+ *   const paypackJs = require("paypack").default;
+ *   const paypack = new paypackJs({ client_id, client_secret });
  *
- * Authentication is handled automatically via a cached access token that is
- * refreshed before every request if it has expired.
+ * Provides:
+ *  - cashin()         → Send USSD push to rider's phone to collect payment
+ *  - getTransaction() → Poll Paypack events for the latest status of a ref
  */
 
-import Paypack from 'paypack-js';
+import { createRequire } from 'module';
 import logger from '../utils/logger.js';
 
-// ── Singleton client (cached) ─────────────────────────────────────────────────
+// paypack-js uses CommonJS exports (module.exports.default = ...) so we
+// must load it with require() inside an ESM project.
+const require = createRequire(import.meta.url);
+const PaypackJs = require('paypack-js').default;
+
+// ── Singleton client ──────────────────────────────────────────────────────────
 
 let _client = null;
 
 /**
- * Returns an authenticated Paypack client, creating one if needed.
- * The paypack-js library handles token caching internally.
+ * Returns an authenticated Paypack client (singleton).
+ * Uses the constructor pattern from the official README.
  */
 function getClient() {
   if (_client) return _client;
 
   const clientId     = process.env.PAYPACK_CLIENT_ID;
   const clientSecret = process.env.PAYPACK_CLIENT_SECRET;
-  const environment  = process.env.PAYPACK_ENV || 'development';
 
   if (!clientId || !clientSecret) {
     throw new Error('Missing PAYPACK_CLIENT_ID or PAYPACK_CLIENT_SECRET in environment variables');
   }
 
-  _client = Paypack.config({
-    client_id:     clientId,
-    client_secret: clientSecret,
-    environment,       // 'development' or 'production'
-  });
+  // Correct instantiation per official README
+  _client = new PaypackJs({ client_id: clientId, client_secret: clientSecret });
 
-  logger.info('Paypack client initialised', { environment });
+  logger.info('Paypack client initialised');
   return _client;
 }
 
@@ -51,22 +53,23 @@ function getClient() {
  * @param {number} amount        Amount in RWF (minimum 100)
  * @param {string} phoneNumber   Rider's Mobile Money phone number (e.g. "078xxxxxxx")
  * @returns {Promise<{ ref: string, status: string }>}
- *   ref    — Paypack's transaction reference (store this to poll later)
- *   status — initial status, usually "pending"
  */
 export async function cashin(amount, phoneNumber) {
-  const client = getClient();
+  const client      = getClient();
+  const environment = process.env.PAYPACK_ENV || 'development';
 
-  logger.info('Paypack cashin initiated', { amount, phone: phoneNumber });
+  logger.info('Paypack cashin initiated', { amount, phone: phoneNumber, environment });
 
   const response = await client.cashin({
-    amount: Number(amount),
-    number: String(phoneNumber),
+    number:      String(phoneNumber),
+    amount:      Number(amount),
+    environment,            // "development" or "production"
   });
 
-  // paypack-js returns the response data directly
-  const ref    = response?.data?.ref    ?? response?.ref;
-  const status = response?.data?.status ?? response?.status ?? 'pending';
+  // Response shape: response.data = { ref, status, ... }
+  const data   = response?.data ?? response;
+  const ref    = data?.ref;
+  const status = data?.status ?? 'pending';
 
   if (!ref) {
     logger.error('Paypack cashin response missing ref', { response });
@@ -78,33 +81,36 @@ export async function cashin(amount, phoneNumber) {
 }
 
 /**
- * Polls Paypack for the current status of a previously initiated transaction.
- * Use this to implement polling instead of webhooks.
+ * Polls Paypack events for the current status of a transaction.
+ * The events endpoint contains the latest status in `event.data.status`.
  *
  * @param {string} ref  The Paypack transaction ref returned by cashin()
- * @returns {Promise<{ ref: string, status: string, amount: number, kind: string }>}
+ * @returns {Promise<{ ref: string, status: string }>}
  *   status: "pending" | "successful" | "failed"
  */
 export async function getTransaction(ref) {
   const client = getClient();
 
-  const response = await client.getTransactions({ ref });
+  // Use events API because it contains the exact status transitions
+  const response = await client.events({ ref, limit: 1 });
+  const data = response?.data ?? response;
+  
+  // Paypack returns a list of events under `transactions` in the events response
+  const eventsList = data?.transactions ?? data?.events ?? [];
+  const event = Array.isArray(eventsList) ? eventsList[0] : null;
 
-  // paypack-js wraps the result; handle both shapes
-  const transactions = response?.data?.transactions ?? response?.transactions ?? [];
-  const tx = Array.isArray(transactions) ? transactions[0] : transactions;
-
-  if (!tx) {
-    // Transaction not found yet — treat as still pending
-    logger.warn('Paypack getTransaction: no record found', { ref });
-    return { ref, status: 'pending', amount: 0, kind: 'CASHIN' };
+  if (!event || !event.data) {
+    logger.info('Paypack: no event data found yet (still pending)', { ref });
+    return { ref, status: 'pending' };
   }
 
-  logger.info('Paypack transaction polled', { ref, status: tx.status });
-  return {
-    ref:    tx.ref    ?? ref,
-    status: tx.status ?? 'pending',   // "pending" | "successful" | "failed"
-    amount: tx.amount ?? 0,
-    kind:   tx.kind   ?? 'CASHIN',
-  };
+  // event.data contains { status: 'successful', ... }
+  let status = (event.data.status ?? 'pending').toLowerCase();
+  
+  // Normalise Paypack's typo if it ever happens: "successfull" → "successful"
+  if (status === 'successfull') status = 'successful';
+
+  logger.info('Paypack transaction polled via events', { ref, status });
+  return { ref, status };
 }
+
