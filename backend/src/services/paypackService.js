@@ -34,7 +34,7 @@ function getClient() {
   const clientSecret = process.env.PAYPACK_CLIENT_SECRET;
 
   if (!clientId || !clientSecret) {
-    throw new Error('Missing PAYPACK_CLIENT_ID or PAYPACK_CLIENT_SECRET in environment variables');
+    throw new AppError('Missing PAYPACK_CLIENT_ID or PAYPACK_CLIENT_SECRET in environment variables', 500, 'PAYMENT_GATEWAY_ERROR');
   }
 
   // Correct instantiation per official README
@@ -60,11 +60,22 @@ export async function cashin(amount, phoneNumber) {
 
   logger.info('Paypack cashin initiated', { amount, phone: phoneNumber, environment });
 
-  const response = await client.cashin({
-    number:      String(phoneNumber),
-    amount:      Number(amount),
-    environment,            // "development" or "production"
-  });
+  let response;
+  try {
+    response = await client.cashin({
+      number:      String(phoneNumber),
+      amount:      Number(amount),
+      environment,            // "development" or "production"
+    });
+  } catch (error) {
+    logger.error('Paypack cashin failed', { error: error.message, status: error.response?.status });
+    
+    // Throw a more readable error if Paypack is down or returns a Bad Gateway
+    if (error.response?.status >= 500) {
+      throw new AppError('Payment gateway is currently unavailable. Please try again in a few moments.', 502, 'PAYMENT_GATEWAY_UNAVAILABLE');
+    }
+    throw new AppError(error.response?.data?.message || error.message || 'Payment request failed.', 400, 'PAYMENT_REQUEST_FAILED');
+  }
 
   // Response shape: response.data = { ref, status, ... }
   const data   = response?.data ?? response;
@@ -73,7 +84,7 @@ export async function cashin(amount, phoneNumber) {
 
   if (!ref) {
     logger.error('Paypack cashin response missing ref', { response });
-    throw new Error('Paypack did not return a transaction reference. Check your credentials and phone number.');
+    throw new AppError('Paypack did not return a transaction reference. Check your credentials and phone number.', 500, 'PAYMENT_GATEWAY_ERROR');
   }
 
   logger.info('Paypack cashin created', { ref, status });
