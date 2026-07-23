@@ -14,6 +14,7 @@ const PaymentSchema = new Schema(
     riderId:           { type: Schema.Types.ObjectId, ref: 'User', required: true },
     swapTransactionId: { type: Schema.Types.ObjectId, ref: 'SwapTransaction' },
     senderPhone:       { type: String },
+    providerRef:       { type: String, index: true },   // Paypack transaction ref
     type:              { type: String, enum: ['swap_payment', 'wallet_topup', 'subscription'], default: 'swap_payment' },
     status:            { type: String, enum: ['pending', 'success', 'failed'], default: 'pending' },
     invoicePdfUrl:     { type: String },

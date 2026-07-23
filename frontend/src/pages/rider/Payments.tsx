@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { DashboardLayout } from '../../components/layout/DashboardLayout'
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
@@ -95,6 +95,14 @@ export function Payments() {
   const [topupError, setTopupError] = useState<string | null>(null)
   const [topupSuccess, setTopupSuccess] = useState<string | null>(null)
 
+  // ── Paypack polling state ──
+  // When a top-up is initiated, we store the Paypack ref and start polling
+  const [pendingRef, setPendingRef] = useState<string | null>(null)
+  const [pendingAmount, setPendingAmount] = useState<number>(0)
+  const [pendingPhone, setPendingPhone] = useState<string>('')
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const pollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   // ── Invoice ──
   const [invoiceLoading, setInvoiceLoading] = useState<string | null>(null)
 
@@ -132,6 +140,49 @@ export function Payments() {
   useEffect(() => { fetchBalance() }, [fetchBalance])
   useEffect(() => { fetchHistory(page) }, [fetchHistory, page])
 
+  // ── Stop polling helper ────────────────────────────────────────────────────
+  const stopPolling = useCallback(() => {
+    if (pollIntervalRef.current) { clearInterval(pollIntervalRef.current); pollIntervalRef.current = null }
+    if (pollTimeoutRef.current) { clearTimeout(pollTimeoutRef.current); pollTimeoutRef.current = null }
+  }, [])
+
+  // Cleanup on unmount
+  useEffect(() => () => stopPolling(), [stopPolling])
+
+  // ── Start polling for a providerRef ───────────────────────────────────────
+  const startPolling = useCallback((ref: string, amount: number) => {
+    stopPolling()
+
+    // Poll every 5 seconds
+    pollIntervalRef.current = setInterval(async () => {
+      try {
+        const result = await api.get<{ status: string; newWalletBalance?: number }>(
+          `/payments/topup/status/${ref}`
+        )
+        if (result.status === 'success') {
+          stopPolling()
+          setPendingRef(null)
+          setWalletBalance(result.newWalletBalance ?? null)
+          setTopupSuccess(`RWF ${amount.toLocaleString()} added successfully! Your wallet has been updated.`)
+          fetchHistory(1)
+          setPage(1)
+        } else if (result.status === 'failed') {
+          stopPolling()
+          setPendingRef(null)
+          setTopupError('Payment was declined or timed out on your phone. Please try again.')
+        }
+        // If 'pending' → keep waiting
+      } catch { /* network hiccup — keep polling */ }
+    }, 5000)
+
+    // 90-second hard timeout
+    pollTimeoutRef.current = setTimeout(() => {
+      stopPolling()
+      setPendingRef(null)
+      setTopupError('No response from your phone after 90 seconds. Please try again.')
+    }, 90_000)
+  }, [stopPolling, fetchHistory])
+
   // ── Top-up submit ─────────────────────────────────────────────────────────
   const handleTopup = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -150,7 +201,7 @@ export function Payments() {
 
     setIsTopping(true)
     try {
-      const result = await api.post<{ newWalletBalance: number; transactionId: string }>(
+      const result = await api.post<{ providerRef: string; status: string }>(
         '/payments/topup',
         {
           provider: topupForm.provider,
@@ -158,13 +209,14 @@ export function Payments() {
           senderPhone: topupForm.phone.trim(),
         }
       )
-      setWalletBalance(result.newWalletBalance)
-      setTopupSuccess(`RWF ${amount.toLocaleString()} added successfully!`)
+      // Paypack cashin initiated — start polling for PIN confirmation
+      setPendingRef(result.providerRef)
+      setPendingAmount(amount)
+      setPendingPhone(topupForm.phone.trim())
       setTopupForm((f) => ({ ...f, amount: '', phone: '' }))
-      fetchHistory(1)
-      setPage(1)
+      startPolling(result.providerRef, amount)
     } catch (err: any) {
-      setTopupError(err.response?.data?.message || 'Failed to process top-up. Please try again.')
+      setTopupError(err.response?.data?.message || 'Failed to send payment request. Please try again.')
     } finally {
       setIsTopping(false)
     }
@@ -257,103 +309,147 @@ export function Payments() {
               </CardContent>
             </Card>
 
-            {/* Top-up Form */}
+            {/* Top-up Form / Pending Panel */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">{p.addFunds}</CardTitle>
               </CardHeader>
               <CardContent>
-                {topupSuccess && (
-                  <div className="flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 px-3 py-2.5 rounded-lg text-sm mb-4">
-                    <CheckCircle className="w-4 h-4 shrink-0" />
-                    <span>{topupSuccess}</span>
+
+                {/* ── Paypack Pending: "Waiting for PIN" panel ── */}
+                {pendingRef && (
+                  <div className="space-y-4">
+                    <div className="flex flex-col items-center gap-4 py-6 text-center">
+                      {/* Pulsing animation ring */}
+                      <div className="relative">
+                        <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                          <Smartphone className="w-8 h-8 text-primary" />
+                        </div>
+                        <span className="absolute inset-0 rounded-full bg-primary/20 animate-ping" />
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-sm font-semibold text-gray-900">Waiting for PIN confirmation</p>
+                        <p className="text-xs text-gray-500">
+                          A payment request of{' '}
+                          <span className="font-medium text-primary">RWF {pendingAmount.toLocaleString()}</span>{' '}
+                          was sent to <span className="font-medium">{pendingPhone}</span>.
+                        </p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          Please enter your Mobile Money PIN on your phone to confirm.
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        Checking every 5 seconds…
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => { stopPolling(); setPendingRef(null) }}
+                      className="w-full text-xs text-gray-400 hover:text-gray-600 underline underline-offset-2"
+                    >
+                      Cancel and try again
+                    </button>
                   </div>
                 )}
-                {topupError && (
-                  <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 px-3 py-2.5 rounded-lg text-sm mb-4">
-                    <XCircle className="w-4 h-4 shrink-0" />
-                    <span>{topupError}</span>
-                  </div>
-                )}
 
-                <form onSubmit={handleTopup} className="space-y-4" noValidate>
-                  <div className="space-y-2">
-                    <Label>{p.amountLabel}</Label>
-                    <Input
-                      type="number"
-                      placeholder={p.amountPlaceholder}
-                      min={100}
-                      step={100}
-                      value={topupForm.amount}
-                      onChange={(e) => setTopupForm((f) => ({ ...f, amount: e.target.value }))}
-                    />
-                    {/* Quick amounts */}
-                    <div className="flex gap-2 flex-wrap">
-                      {[500, 1000, 2000, 5000].map((amt) => (
-                        <button
-                          key={amt}
-                          type="button"
-                          onClick={() => setTopupForm((f) => ({ ...f, amount: String(amt) }))}
-                          className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
-                            topupForm.amount === String(amt)
-                              ? 'bg-primary text-white border-primary'
-                              : 'border-gray-200 text-gray-600 hover:border-primary/50'
-                          }`}
-                        >
-                          {amt.toLocaleString()}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>{p.phoneLabel}</Label>
-                    <Input
-                      type="tel"
-                      placeholder={p.phonePlaceholder}
-                      value={topupForm.phone}
-                      onChange={(e) => setTopupForm((f) => ({ ...f, phone: e.target.value }))}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>{p.paymentMethod}</Label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setTopupForm((f) => ({ ...f, provider: 'mtn_momo' }))}
-                        className={`flex items-center gap-2 p-3 border rounded-lg text-sm font-medium transition-colors ${
-                          topupForm.provider === 'mtn_momo'
-                            ? 'border-yellow-400 bg-yellow-50 text-yellow-800'
-                            : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                        }`}
-                      >
-                        <Smartphone className="w-4 h-4" />
-                        MTN MoMo
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setTopupForm((f) => ({ ...f, provider: 'airtel_money' }))}
-                        className={`flex items-center gap-2 p-3 border rounded-lg text-sm font-medium transition-colors ${
-                          topupForm.provider === 'airtel_money'
-                            ? 'border-red-400 bg-red-50 text-red-800'
-                            : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                        }`}
-                      >
-                        <Smartphone className="w-4 h-4" />
-                        Airtel Money
-                      </button>
-                    </div>
-                  </div>
-
-                  <Button type="submit" className="w-full" disabled={isTopping}>
-                    {isTopping ? (
-                      <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{p.processing}</>
-                    ) : (
-                      <><TrendingUp className="w-4 h-4 mr-2" />{p.addFundsBtn}</>
+                {/* ── Normal top-up form ── */}
+                {!pendingRef && (
+                  <>
+                    {topupSuccess && (
+                      <div className="flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 px-3 py-2.5 rounded-lg text-sm mb-4">
+                        <CheckCircle className="w-4 h-4 shrink-0" />
+                        <span>{topupSuccess}</span>
+                      </div>
                     )}
-                  </Button>
-                </form>
+                    {topupError && (
+                      <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 px-3 py-2.5 rounded-lg text-sm mb-4">
+                        <XCircle className="w-4 h-4 shrink-0" />
+                        <span>{topupError}</span>
+                      </div>
+                    )}
+
+                    <form onSubmit={handleTopup} className="space-y-4" noValidate>
+                      <div className="space-y-2">
+                        <Label>{p.amountLabel}</Label>
+                        <Input
+                          type="number"
+                          placeholder={p.amountPlaceholder}
+                          min={100}
+                          step={100}
+                          value={topupForm.amount}
+                          onChange={(e) => setTopupForm((f) => ({ ...f, amount: e.target.value }))}
+                        />
+                        {/* Quick amounts */}
+                        <div className="flex gap-2 flex-wrap">
+                          {[500, 1000, 2000, 5000].map((amt) => (
+                            <button
+                              key={amt}
+                              type="button"
+                              onClick={() => setTopupForm((f) => ({ ...f, amount: String(amt) }))}
+                              className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                                topupForm.amount === String(amt)
+                                  ? 'bg-primary text-white border-primary'
+                                  : 'border-gray-200 text-gray-600 hover:border-primary/50'
+                              }`}
+                            >
+                              {amt.toLocaleString()}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>{p.phoneLabel}</Label>
+                        <Input
+                          type="tel"
+                          placeholder={p.phonePlaceholder}
+                          value={topupForm.phone}
+                          onChange={(e) => setTopupForm((f) => ({ ...f, phone: e.target.value }))}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>{p.paymentMethod}</Label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setTopupForm((f) => ({ ...f, provider: 'mtn_momo' }))}
+                            className={`flex items-center gap-2 p-3 border rounded-lg text-sm font-medium transition-colors ${
+                              topupForm.provider === 'mtn_momo'
+                                ? 'border-yellow-400 bg-yellow-50 text-yellow-800'
+                                : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                            }`}
+                          >
+                            <Smartphone className="w-4 h-4" />
+                            MTN MoMo
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setTopupForm((f) => ({ ...f, provider: 'airtel_money' }))}
+                            className={`flex items-center gap-2 p-3 border rounded-lg text-sm font-medium transition-colors ${
+                              topupForm.provider === 'airtel_money'
+                                ? 'border-red-400 bg-red-50 text-red-800'
+                                : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                            }`}
+                          >
+                            <Smartphone className="w-4 h-4" />
+                            Airtel Money
+                          </button>
+                        </div>
+                      </div>
+
+                      <Button type="submit" className="w-full" disabled={isTopping}>
+                        {isTopping ? (
+                          <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Sending request…</>
+                        ) : (
+                          <><TrendingUp className="w-4 h-4 mr-2" />{p.addFundsBtn}</>
+                        )}
+                      </Button>
+                    </form>
+                  </>
+                )}
+
               </CardContent>
             </Card>
           </div>

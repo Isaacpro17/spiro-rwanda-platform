@@ -17,16 +17,49 @@ export async function initiateTopup(req, res, next) {
     if (!errors.isEmpty()) throw new ValidationError('Validation failed', errors.array());
     const { provider, amountRwf, senderPhone } = req.body;
     const result = await paymentService.initiateWalletTopup(req.user.userId, provider, amountRwf, senderPhone);
-    res.status(200).json({ success: true, data: result, message: 'Wallet topped up successfully', error: '' });
+
+    // Return pending status + providerRef so frontend can start polling
+    res.status(200).json({
+      success: true,
+      data: result,
+      message: 'Payment request sent. Please enter your Mobile Money PIN on your phone.',
+      error: '',
+    });
     void auditService.log({
       eventType: EVENTS.WALLET_TOPUP,
       actorUserId: req.user.userId,
       actorRole: req.user.role,
       resourceType: 'Payment',
-      resourceId: result._id?.toString() ?? result.transactionId?.toString(),
-      description: `Wallet top-up of ${amountRwf} RWF initiated via ${provider}`,
+      resourceId: result.paymentId,
+      description: `Wallet top-up of ${amountRwf} RWF initiated via ${provider} (Paypack ref: ${result.providerRef})`,
       ipAddress: req.ip,
     }).catch(() => {});
+  } catch (err) { return next(err); }
+}
+
+/**
+ * GET /payments/topup/status/:ref
+ * Polling endpoint — frontend calls this every 5 s to check if the rider
+ * has entered their PIN and Paypack has confirmed the payment.
+ */
+export async function checkTopupStatus(req, res, next) {
+  try {
+    const { ref } = req.params;
+    const result = await paymentService.checkTopupStatus(ref, req.user.userId);
+
+    // If just confirmed successful, fire the audit log
+    if (result.status === 'success') {
+      void auditService.log({
+        eventType: EVENTS.WALLET_TOPUP,
+        actorUserId: req.user.userId,
+        actorRole: req.user.role,
+        resourceType: 'Payment',
+        description: `Wallet top-up confirmed via Paypack (ref: ${ref}). New balance: ${result.newWalletBalance} RWF`,
+        ipAddress: req.ip,
+      }).catch(() => {});
+    }
+
+    return res.status(200).json({ success: true, data: result, message: `Status: ${result.status}`, error: '' });
   } catch (err) { return next(err); }
 }
 
@@ -40,41 +73,9 @@ export async function initiatePayment(req, res, next) {
   } catch (err) { return next(err); }
 }
 
-export async function handleMtnWebhook(req, res, next) {
-  try {
-    const payment = await paymentService.handlePaymentWebhook({ ...req.body, transactionId: req.body.externalId || req.body.transactionId, status: req.body.status });
-    const io = req.app.get('io');
-    if (payment.riderId) {
-      const isSuccess = payment.status === 'success';
-      const msgKey = isSuccess ? 'payment.success' : 'payment.failed';
-      await notificationService.sendNotification(payment.riderId.toString(), msgKey, { amount: payment.amountRwf, ref: payment.transactionId }, 'sms', io);
-      void auditService.log({
-        eventType: isSuccess ? EVENTS.PAYMENT_SUCCESS : EVENTS.PAYMENT_FAILED,
-        actorUserId: payment.riderId.toString(),
-        resourceType: 'Payment',
-        resourceId: payment._id.toString(),
-        description: `MTN payment ${isSuccess ? 'succeeded' : 'failed'} — ${payment.amountRwf} RWF (ref: ${payment.transactionId})`,
-      }).catch(() => {});
-    }
-    return res.status(200).json({ success: true, data: {}, message: 'Webhook processed', error: '' });
-  } catch (err) { return next(err); }
-}
-
-export async function handleAirtelWebhook(req, res, next) {
-  try {
-    const payment = await paymentService.handlePaymentWebhook({ transactionId: req.body.transaction?.id, status: req.body.transaction?.status === 'TS' ? 'SUCCESSFUL' : 'FAILED' });
-    if (payment.riderId) {
-      const isSuccess = payment.status === 'success';
-      void auditService.log({
-        eventType: isSuccess ? EVENTS.PAYMENT_SUCCESS : EVENTS.PAYMENT_FAILED,
-        actorUserId: payment.riderId.toString(),
-        resourceType: 'Payment',
-        resourceId: payment._id?.toString(),
-        description: `Airtel payment ${isSuccess ? 'succeeded' : 'failed'} — ${payment.amountRwf} RWF`,
-      }).catch(() => {});
-    }
-    return res.status(200).json({ success: true, data: {}, message: 'Webhook processed', error: '' });
-  } catch (err) { return next(err); }
+export async function handlePaypackWebhook(req, res, next) {
+  // Kept for future webhook upgrade; currently not used (polling approach)
+  return res.status(200).json({ success: true, data: {}, message: 'OK', error: '' });
 }
 
 export async function getPaymentHistory(req, res, next) {

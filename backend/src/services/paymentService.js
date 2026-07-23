@@ -7,6 +7,7 @@ import crypto from 'crypto';
 import Payment from '../models/Payment.js';
 import SwapTransaction from '../models/SwapTransaction.js';
 import RiderProfile from '../models/RiderProfile.js';
+import * as paypackService from './paypackService.js';
 import { NotFoundError, ValidationError } from '../middleware/errorHandler.js';
 import logger from '../utils/logger.js';
 
@@ -93,19 +94,26 @@ export async function generateInvoice(paymentId) {
 }
 
 /**
- * Initiates a wallet top-up and immediately credits the balance (dev simulation).
- * In production, replace the immediate credit with a webhook-driven approach.
+ * Initiates a wallet top-up via Paypack (real USSD push).
+ * The wallet is NOT credited immediately — it stays "pending" until
+ * the caller polls checkTopupStatus() and Paypack confirms success.
+ *
  * @param {string} riderId
  * @param {'mtn_momo'|'airtel_money'} provider
  * @param {number} amountRwf
- * @param {string} senderPhone
- * @returns {Promise<{ paymentId: string, transactionId: string, status: string, newWalletBalance: number }>}
+ * @param {string} senderPhone   Rider's mobile money number
+ * @returns {Promise<{ paymentId: string, transactionId: string, providerRef: string, status: 'pending' }>}
  */
 export async function initiateWalletTopup(riderId, provider, amountRwf, senderPhone) {
   const transactionId = `WLT${Date.now()}${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
 
+  // 1. Call Paypack → rider's phone gets USSD PIN prompt
+  const { ref } = await paypackService.cashin(amountRwf, senderPhone);
+
+  // 2. Record the payment as PENDING (wallet not yet credited)
   const payment = await Payment.create({
     transactionId,
+    providerRef: ref,          // Paypack's transaction reference for polling
     provider,
     amountRwf,
     riderId,
@@ -114,28 +122,73 @@ export async function initiateWalletTopup(riderId, provider, amountRwf, senderPh
     status: 'pending',
   });
 
-  // Simulate immediate confirmation (replace with webhook in production)
-  const updatedProfile = await RiderProfile.findOneAndUpdate(
-    { userId: riderId },
-    { $inc: { walletBalance: amountRwf } },
-    { new: true, upsert: true }
-  );
-
-  await Payment.findByIdAndUpdate(payment._id, { status: 'success' });
-
-  logger.info('Wallet top-up processed', {
-    riderId,
-    amountRwf,
-    provider,
-    newBalance: updatedProfile.walletBalance,
+  logger.info('Wallet top-up initiated via Paypack', {
+    riderId, amountRwf, provider, senderPhone, ref,
   });
 
   return {
-    paymentId: payment._id.toString(),
+    paymentId:     payment._id.toString(),
     transactionId,
-    status: 'success',
-    newWalletBalance: updatedProfile.walletBalance,
+    providerRef:   ref,
+    status:        'pending',
   };
+}
+
+/**
+ * Polls Paypack for the current status of a pending wallet top-up.
+ * If Paypack reports "successful", credits the rider's wallet and marks payment as success.
+ * If Paypack reports "failed", marks payment as failed.
+ * Safe to call repeatedly — if already in a final state it returns immediately.
+ *
+ * @param {string} providerRef   The Paypack `ref` returned by initiateWalletTopup()
+ * @param {string} riderId       The rider's user ID (for authorization)
+ * @returns {Promise<{ status: 'pending'|'success'|'failed', newWalletBalance?: number }>}
+ */
+export async function checkTopupStatus(providerRef, riderId) {
+  // Find the payment record
+  const payment = await Payment.findOne({ providerRef, riderId });
+  if (!payment) throw new NotFoundError('Payment not found');
+
+  // If already in a final state, return immediately (idempotent)
+  if (payment.status === 'success') {
+    const profile = await RiderProfile.findOne({ userId: riderId }).lean();
+    return { status: 'success', newWalletBalance: profile?.walletBalance ?? 0 };
+  }
+  if (payment.status === 'failed') {
+    return { status: 'failed' };
+  }
+
+  // Poll Paypack for the latest status
+  const { status: paypackStatus } = await paypackService.getTransaction(providerRef);
+
+  if (paypackStatus === 'successful') {
+    // Credit the wallet atomically
+    const updatedProfile = await RiderProfile.findOneAndUpdate(
+      { userId: riderId },
+      { $inc: { walletBalance: payment.amountRwf } },
+      { new: true, upsert: true },
+    );
+
+    await Payment.findByIdAndUpdate(payment._id, { status: 'success' });
+
+    logger.info('Wallet top-up confirmed and credited', {
+      riderId,
+      amountRwf: payment.amountRwf,
+      providerRef,
+      newBalance: updatedProfile.walletBalance,
+    });
+
+    return { status: 'success', newWalletBalance: updatedProfile.walletBalance };
+  }
+
+  if (paypackStatus === 'failed') {
+    await Payment.findByIdAndUpdate(payment._id, { status: 'failed' });
+    logger.warn('Wallet top-up failed (reported by Paypack)', { riderId, providerRef });
+    return { status: 'failed' };
+  }
+
+  // Still pending
+  return { status: 'pending' };
 }
 
 /**
