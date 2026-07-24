@@ -119,9 +119,7 @@ function ReservationRow({
           <p className="text-xs text-gray-500 mt-0.5">
             {formatDateTime(reservation.reservedTime)}
           </p>
-          <p className="text-xs font-mono text-primary mt-1">
-            Code: {reservation.cancellationCode}
-          </p>
+
           {reservation.queuePosition && (
             <p className="text-xs text-gray-400 mt-0.5">Queue #{reservation.queuePosition}</p>
           )}
