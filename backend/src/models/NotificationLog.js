@@ -13,13 +13,14 @@ const NotificationLogSchema = new Schema(
     messageContent:  { type: String },
     language:        { type: String, enum: ['rw', 'en'], default: 'rw' },
     status:          { type: String, enum: ['sent', 'failed', 'pending'], default: 'pending' },
+    isRead:          { type: Boolean, default: false },
     retryCount:      { type: Number, default: 0 },
     deliveredAt:     { type: Date },
   },
   { timestamps: true }
 );
 
-NotificationLogSchema.index({ recipientUserId: 1 });
+NotificationLogSchema.index({ recipientUserId: 1, isRead: 1 });
 NotificationLogSchema.index({ status: 1 });
 
 export default mongoose.model('NotificationLog', NotificationLogSchema);

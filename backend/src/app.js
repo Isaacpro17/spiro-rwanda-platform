@@ -29,6 +29,7 @@ import technicianRouter from './routes/technicians.js';
 import systemSettingsRouter from './routes/systemSettings.js';
 import reportRouter from './routes/reports.js';
 import contactRouter from './routes/contact.js';
+import notificationsRouter from './routes/notifications.js';
 import logger from './utils/logger.js';
 
 /**
@@ -98,6 +99,7 @@ export function createApp() {
   app.use('/api/v1/riders', riderRouter);
   app.use('/api/v1/stations', stationRouter);
   app.use('/api/v1/swaps', swapRouter);
+  app.use('/api/v1/notifications', notificationsRouter);
   app.use('/api/v1/queue', queueRouter);
   app.use('/api/v1/payments', paymentRouter);
   app.use('/api/v1/analytics', analyticsRouter);

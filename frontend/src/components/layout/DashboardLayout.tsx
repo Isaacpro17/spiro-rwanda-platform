@@ -28,6 +28,7 @@ import {
 } from 'lucide-react'
 import { Button } from '../ui/button'
 import { SpiroLogo } from '../ui/SpiroLogo'
+import { NotificationBell } from './NotificationBell'
 import { useLanguage } from '../../contexts/LanguageContext'
 import PendingTransactionModal from '../PendingTransactionModal'
 
@@ -125,12 +126,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               <button onClick={toggle} className="text-gray-500 hover:text-gray-700" aria-label="Switch language">
                 <Globe className="w-5 h-5" />
               </button>
-              <button className="text-gray-500 hover:text-gray-700 relative">
-                <Bell className="w-5 h-5" />
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-error rounded-full text-xs text-white flex items-center justify-center">
-                  3
-                </span>
-              </button>
+              <NotificationBell />
               <div className="flex items-center space-x-2">
                 <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
                   <User className="w-4 h-4 text-primary" />

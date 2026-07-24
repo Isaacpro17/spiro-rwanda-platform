@@ -36,7 +36,16 @@ export async function sendNotification(userId, messageKey, params = {}, channel 
   }
 
   if ((channel === 'in_app' || channel === 'both') && io) {
-    sendInApp(userId, message, messageKey, io);
+    const log = await NotificationLog.create({
+      recipientUserId: userId,
+      channel: 'in_app',
+      messageKey,
+      messageContent: message,
+      language,
+      status: 'sent',
+      deliveredAt: new Date(),
+    });
+    sendInApp(userId, message, messageKey, io, log._id);
   }
 }
 
@@ -132,10 +141,11 @@ async function dispatchSms(phone, message) {
  * @param {string} message
  * @param {string} type
  * @param {import('socket.io').Server} io
+ * @param {import('mongoose').Types.ObjectId} logId
  */
-function sendInApp(userId, message, type, io) {
-  io.to(`rider:${userId}`).emit('rider:notification', { message, type, timestamp: new Date() });
-  logger.info('In-app notification sent', { userId, type });
+function sendInApp(userId, message, type, io, logId) {
+  io.to(`rider:${userId}`).emit('rider:notification', { _id: logId, message, type, timestamp: new Date() });
+  logger.info('In-app notification sent', { userId, type, logId });
 }
 
 /**
