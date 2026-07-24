@@ -36,7 +36,6 @@ interface Confirmation {
   _id: string
   stationName: string
   reservedTime: string
-  cancellationCode: string
   queuePosition?: number
 }
 
@@ -70,13 +69,6 @@ function ConfirmationPanel({ confirmation, onDone }: { confirmation: Confirmatio
                 <span className="font-semibold text-gray-900">#{confirmation.queuePosition}</span>
               </div>
             )}
-          </div>
-
-          <div className="w-full bg-primary/5 border border-primary/20 rounded-xl p-4">
-            <p className="text-xs text-primary font-medium uppercase tracking-wider mb-1">{s.confirmCancellationCode}</p>
-            <p className="text-3xl font-mono font-bold text-primary tracking-widest">
-              {confirmation.cancellationCode}
-            </p>
           </div>
 
           <div className="flex items-start gap-2 bg-warning/5 border border-warning/20 rounded-lg p-3 text-left">
@@ -524,7 +516,6 @@ export function SwapRequest() {
         _id: data._id,
         stationName: station?.name || 'Station',
         reservedTime: data.reservedTime,
-        cancellationCode: data.cancellationCode,
         queuePosition: data.queuePosition,
       })
       setForm({ stationId: '', reservedTime: '' })
@@ -537,6 +528,13 @@ export function SwapRequest() {
   }
 
   const handleCancelConfirm = () => setConfirmation(null)
+
+  const handleCancelReservation = async (id: string) => {
+    await cancelReservation(id)
+    if (confirmation && confirmation._id === id) {
+      setConfirmation(null)
+    }
+  }
 
   const selectedStation = stations.find((s) => s._id === form.stationId)
   const hasActiveReservation = reservations.length > 0
@@ -702,7 +700,7 @@ export function SwapRequest() {
                       <ReservationRow
                         key={r._id}
                         reservation={r}
-                        onCancel={cancelReservation}
+                        onCancel={handleCancelReservation}
                         isCancelling={isCancelling === r._id}
                       />
                     ))}
