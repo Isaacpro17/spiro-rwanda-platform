@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { api } from '../../services/api'
 import { Navbar } from '../../components/layout/Navbar'
 import { Footer } from '../../components/layout/Footer'
 import { Button } from '../../components/ui/button'
@@ -24,10 +25,26 @@ export function ContactPage() {
     subject: '',
     message: '',
   })
+  
+  const [loading, setLoading] = useState(false)
+  const [successMsg, setSuccessMsg] = useState('')
+  const [errorMsg, setErrorMsg] = useState('')
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log('Form submitted:', formData)
+    setLoading(true)
+    setSuccessMsg('')
+    setErrorMsg('')
+    
+    try {
+      const res = await api.post<{ message: string }>('/contact', formData)
+      setSuccessMsg(res.message || 'Your message has been received successfully.')
+      setFormData({ name: '', email: '', phone: '', subject: '', message: '' })
+    } catch (err: any) {
+      setErrorMsg(err.response?.data?.message || 'Failed to send message. Please try again later.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -114,6 +131,19 @@ export function ContactPage() {
             <Reveal delay={100}>
               <div className="bg-gray-50 border border-gray-100 p-8 rounded-2xl">
                 <h2 className="text-2xl font-bold text-gray-900 mb-6">{c.form.title}</h2>
+                
+                {successMsg && (
+                  <div className="mb-6 p-4 bg-green-50 border border-green-100 text-green-700 rounded-lg text-sm">
+                    {successMsg}
+                  </div>
+                )}
+                
+                {errorMsg && (
+                  <div className="mb-6 p-4 bg-red-50 border border-red-100 text-red-700 rounded-lg text-sm">
+                    {errorMsg}
+                  </div>
+                )}
+
                 <form onSubmit={handleSubmit} className="space-y-5">
                   <div className="space-y-2">
                     <Label htmlFor="name">{c.form.name}</Label>
@@ -168,8 +198,8 @@ export function ContactPage() {
                     />
                   </div>
 
-                  <Button type="submit" className="w-full font-semibold">
-                    {c.form.submit}
+                  <Button type="submit" className="w-full h-12 text-base" disabled={loading}>
+                    {loading ? 'Sending...' : c.form.submit}
                   </Button>
                 </form>
               </div>
