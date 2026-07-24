@@ -184,17 +184,12 @@ export async function confirm(transactionId, riderId, pin) {
 
   } else if (tx.type === 'swap_cost') {
     const profile = await RiderProfile.findOne({ userId: riderId });
-    if (!profile || profile.walletBalance < tx.amountRwf) {
-      throw new ValidationError(
-        `Insufficient wallet balance. You have RWF ${(profile?.walletBalance ?? 0).toLocaleString()}, ` +
-        `but this transaction requires RWF ${tx.amountRwf.toLocaleString()}.`,
-      );
+    if (!profile) {
+      throw new ValidationError('Rider profile not found.');
     }
-    const updated = await RiderProfile.findOneAndUpdate(
-      { userId: riderId },
-      { $inc: { walletBalance: -tx.amountRwf } },
-      { new: true },
-    );
+    
+    // It's a cash transaction directly to the operator, so we don't deduct from the wallet balance.
+    // We just record the payment event in the system.
     await Payment.create({
       transactionId: paymentTxId,
       provider: 'cash',
@@ -203,7 +198,7 @@ export async function confirm(transactionId, riderId, pin) {
       type: 'swap_payment',
       status: 'success',
     });
-    result = { newWalletBalance: updated.walletBalance };
+    result = { newWalletBalance: profile.walletBalance };
   }
 
   await PendingTransaction.findByIdAndUpdate(transactionId, {
