@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react'
 import { Bell, Check } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../contexts/AuthContext'
-import { socket } from '../../lib/socket'
 
 interface Notification {
   _id: string
@@ -36,34 +35,12 @@ export function NotificationBell() {
     if (!user) return
     fetchNotifications()
 
-    // Listen for new notifications
-    const roleMap: Record<string, string> = {
-      rider: 'rider:notification',
-      operator: 'operator:notification',
-      technician: 'technician:notification',
-      admin: 'admin:notification',
-    }
+    // Poll for new notifications every 30 seconds
+    const interval = setInterval(() => {
+      fetchNotifications()
+    }, 30000)
 
-    const eventName = roleMap[user.role] || 'notification'
-    
-    const handleNewNotification = (data: any) => {
-      setUnreadCount((prev) => prev + 1)
-      setNotifications((prev) => {
-        const newNotif = {
-          _id: data._id || Date.now().toString(),
-          messageContent: data.message,
-          messageKey: data.type,
-          isRead: false,
-          createdAt: new Date().toISOString(),
-        }
-        return [newNotif, ...prev].slice(0, 20)
-      })
-    }
-
-    socket.on(eventName, handleNewNotification)
-    return () => {
-      socket.off(eventName, handleNewNotification)
-    }
+    return () => clearInterval(interval)
   }, [user])
 
   // Handle clicking outside to close
