@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { DashboardLayout } from '../../components/layout/DashboardLayout'
+import { useLanguage } from '../../contexts/LanguageContext'
 import { api } from '../../lib/api'
 import { Mail, RefreshCw, Archive, CheckCircle, MessageSquare } from 'lucide-react'
 import { format } from 'date-fns'
@@ -13,7 +14,6 @@ import {
 } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Badge } from '../../components/ui/badge'
-import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
 
 interface ContactMessage {
@@ -39,9 +39,11 @@ interface MessagesResponse {
 function MessageModal({
   message,
   onClose,
+  m,
 }: {
   message: ContactMessage
   onClose: () => void
+  m: ReturnType<typeof useLanguage>['t']['admin']['messages']
 }) {
   const qc = useQueryClient()
 
@@ -54,6 +56,16 @@ function MessageModal({
       onClose()
     },
   })
+
+  const statusVariant = (s: string) =>
+    s === 'new' ? 'destructive' : s === 'replied' ? 'success' : s === 'archived' ? 'outline' : 'secondary'
+
+  const statusLabel = (s: string) => {
+    if (s === 'new') return m.statusNew
+    if (s === 'read') return m.statusRead
+    if (s === 'replied') return m.statusReplied
+    return m.statusArchived
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -69,18 +81,8 @@ function MessageModal({
                 {format(new Date(message.createdAt), 'PPP p')}
               </div>
             </div>
-            <Badge
-              variant={
-                message.status === 'new'
-                  ? 'destructive'
-                  : message.status === 'replied'
-                  ? 'success'
-                  : message.status === 'archived'
-                  ? 'outline'
-                  : 'secondary'
-              }
-            >
-              {message.status.toUpperCase()}
+            <Badge variant={statusVariant(message.status) as any}>
+              {statusLabel(message.status)}
             </Badge>
           </div>
         </CardHeader>
@@ -91,27 +93,19 @@ function MessageModal({
 
           <div className="flex justify-end gap-3 mt-6">
             <Button variant="outline" onClick={onClose} disabled={isPending}>
-              Close
+              {m.modalClose}
             </Button>
-            
+
             {message.status !== 'read' && message.status !== 'replied' && message.status !== 'archived' && (
-              <Button
-                variant="outline"
-                onClick={() => updateStatus('read')}
-                disabled={isPending}
-              >
-                Mark as Read
+              <Button variant="outline" onClick={() => updateStatus('read')} disabled={isPending}>
+                {m.modalMarkRead}
               </Button>
             )}
 
             {message.status !== 'replied' && (
-              <Button
-                onClick={() => updateStatus('replied')}
-                disabled={isPending}
-                className="gap-2"
-              >
+              <Button onClick={() => updateStatus('replied')} disabled={isPending} className="gap-2">
                 <CheckCircle className="w-4 h-4" />
-                Mark Replied
+                {m.modalMarkReplied}
               </Button>
             )}
 
@@ -123,7 +117,7 @@ function MessageModal({
                 className="gap-2"
               >
                 <Archive className="w-4 h-4" />
-                Archive
+                {m.modalArchive}
               </Button>
             )}
           </div>
@@ -136,6 +130,9 @@ function MessageModal({
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export function AdminMessages() {
+  const { t } = useLanguage()
+  const m = t.admin.messages
+
   const [page, setPage] = useState(1)
   const [statusFilter, setStatusFilter] = useState('')
   const [selectedMsg, setSelectedMsg] = useState<ContactMessage | null>(null)
@@ -150,6 +147,16 @@ export function AdminMessages() {
     },
   })
 
+  const statusVariant = (s: string) =>
+    s === 'new' ? 'destructive' : s === 'replied' ? 'success' : s === 'archived' ? 'outline' : 'secondary'
+
+  const statusLabel = (s: string) => {
+    if (s === 'new') return m.statusNew
+    if (s === 'read') return m.statusRead
+    if (s === 'replied') return m.statusReplied
+    return m.statusArchived
+  }
+
   return (
     <DashboardLayout>
       <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 animate-fade-up">
@@ -158,28 +165,23 @@ export function AdminMessages() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
               <Mail className="w-6 h-6 text-primary" />
-              Contact Messages
+              {m.title}
             </h1>
-            <p className="text-gray-500 text-sm mt-1">
-              Read and manage messages submitted via the public contact form.
-            </p>
+            <p className="text-gray-500 text-sm mt-1">{m.subtitle}</p>
           </div>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
-              <Label className="text-gray-600 whitespace-nowrap">Filter Status:</Label>
+              <Label className="text-gray-600 whitespace-nowrap">{m.filterLabel}</Label>
               <select
                 className="h-10 px-3 border border-gray-200 rounded-lg text-sm bg-white"
                 value={statusFilter}
-                onChange={(e) => {
-                  setStatusFilter(e.target.value)
-                  setPage(1)
-                }}
+                onChange={(e) => { setStatusFilter(e.target.value); setPage(1) }}
               >
-                <option value="">All</option>
-                <option value="new">New</option>
-                <option value="read">Read</option>
-                <option value="replied">Replied</option>
-                <option value="archived">Archived</option>
+                <option value="">{m.filterAll}</option>
+                <option value="new">{m.filterNew}</option>
+                <option value="read">{m.filterRead}</option>
+                <option value="replied">{m.filterReplied}</option>
+                <option value="archived">{m.filterArchived}</option>
               </select>
             </div>
             <Button variant="outline" size="icon" onClick={() => refetch()}>
@@ -188,31 +190,31 @@ export function AdminMessages() {
           </div>
         </div>
 
-        {/* Content */}
+        {/* Table */}
         <Card className="shadow-sm border-gray-100">
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
               <thead className="bg-gray-50 text-gray-500 border-b">
                 <tr>
-                  <th className="px-6 py-4 font-medium">Date</th>
-                  <th className="px-6 py-4 font-medium">Sender</th>
-                  <th className="px-6 py-4 font-medium">Subject</th>
-                  <th className="px-6 py-4 font-medium">Status</th>
-                  <th className="px-6 py-4 font-medium text-right">Actions</th>
+                  <th className="px-6 py-4 font-medium">{m.colDate}</th>
+                  <th className="px-6 py-4 font-medium">{m.colSender}</th>
+                  <th className="px-6 py-4 font-medium">{m.colSubject}</th>
+                  <th className="px-6 py-4 font-medium">{m.colStatus}</th>
+                  <th className="px-6 py-4 font-medium text-right">{m.colActions}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {isLoading ? (
                   <tr>
                     <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
-                      Loading messages...
+                      {m.loading}
                     </td>
                   </tr>
                 ) : data?.messages.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
                       <MessageSquare className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                      <p>No messages found matching your criteria.</p>
+                      <p>{m.empty}</p>
                     </td>
                   </tr>
                 ) : (
@@ -235,24 +237,12 @@ export function AdminMessages() {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <Badge
-                          variant={
-                            msg.status === 'new'
-                              ? 'destructive'
-                              : msg.status === 'replied'
-                              ? 'success'
-                              : msg.status === 'archived'
-                              ? 'outline'
-                              : 'secondary'
-                          }
-                        >
-                          {msg.status.toUpperCase()}
+                        <Badge variant={statusVariant(msg.status) as any}>
+                          {statusLabel(msg.status)}
                         </Badge>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <Button variant="ghost" size="sm">
-                          View
-                        </Button>
+                        <Button variant="ghost" size="sm">{m.viewBtn}</Button>
                       </td>
                     </tr>
                   ))
@@ -260,12 +250,15 @@ export function AdminMessages() {
               </tbody>
             </table>
           </div>
-          
+
           {/* Pagination */}
           {data && data.pages > 1 && (
             <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between">
               <span className="text-sm text-gray-500">
-                Page {data.page} of {data.pages} (Total: {data.total})
+                {m.pageOf
+                  .replace('{page}', String(data.page))
+                  .replace('{pages}', String(data.pages))
+                  .replace('{total}', String(data.total))}
               </span>
               <div className="flex gap-2">
                 <Button
@@ -274,7 +267,7 @@ export function AdminMessages() {
                   disabled={page === 1}
                   onClick={() => setPage(p => Math.max(1, p - 1))}
                 >
-                  Previous
+                  {m.prevBtn}
                 </Button>
                 <Button
                   variant="outline"
@@ -282,7 +275,7 @@ export function AdminMessages() {
                   disabled={page === data.pages}
                   onClick={() => setPage(p => Math.min(data.pages, p + 1))}
                 >
-                  Next
+                  {m.nextBtn}
                 </Button>
               </div>
             </div>
@@ -293,11 +286,8 @@ export function AdminMessages() {
       {selectedMsg && (
         <MessageModal
           message={selectedMsg}
-          onClose={() => {
-            setSelectedMsg(null)
-            // If they open a "new" message, automatically mark it as read? (Optional)
-            // The modal handles this manually for now.
-          }}
+          onClose={() => setSelectedMsg(null)}
+          m={m}
         />
       )}
     </DashboardLayout>

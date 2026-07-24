@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { DashboardLayout } from '../../components/layout/DashboardLayout'
+import { useLanguage } from '../../contexts/LanguageContext'
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
@@ -62,6 +63,9 @@ interface StationOption {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function AdminReports() {
+  const { t, lang } = useLanguage()
+  const r = t.admin.reports
+
   const [reports, setReports] = useState<ReportType[]>([])
   const [stations, setStations] = useState<StationOption[]>([])
   const [riders, setRiders] = useState<{ _id: string; fullName: string; phone: string }[]>([])
@@ -109,27 +113,27 @@ export function AdminReports() {
 
   const validateReport = (type: string) => {
     if ((type === 'payment_statement' || type === 'swap_history') && !filters.riderId) {
-      window.alert('Please select a Rider ID in the filters first.')
+      window.alert(r.alertRider)
       return false
     }
     if (type === 'work_history' && !filters.technicianId) {
-      window.alert('Please select a Technician ID in the filters first.')
+      window.alert(r.alertTechnician)
       return false
     }
     if (type === 'inventory_status' && !filters.stationId) {
-      window.alert('Please select a Station ID in the filters first.')
+      window.alert(r.alertStation)
       return false
     }
     return true
   }
 
-  // Generate PDF
+  // Generate PDF — passes current UI language so the PDF matches
   const handleDownload = async (type: string) => {
-    if (!validateReport(type)) return;
+    if (!validateReport(type)) return
     try {
       setGenerating(type)
       setError('')
-      await downloadReport(type, filters)
+      await downloadReport(type, { ...filters, lang })
     } catch (err: any) {
       if (err.response?.data instanceof Blob) {
         try {
@@ -145,13 +149,13 @@ export function AdminReports() {
     }
   }
 
-  // Preview PDF
+  // Preview PDF — passes current UI language
   const handlePreview = async (type: string) => {
-    if (!validateReport(type)) return;
+    if (!validateReport(type)) return
     try {
       setPreviewing(type)
       setError('')
-      await previewReport(type, filters)
+      await previewReport(type, { ...filters, lang })
     } catch (err: any) {
       if (err.response?.data instanceof Blob) {
         try {
@@ -186,11 +190,9 @@ export function AdminReports() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
               <FileText className="w-7 h-7 text-primary" />
-              Reports
+              {r.title}
             </h1>
-            <p className="text-sm text-gray-500 mt-1">
-              Generate and download PDF reports for your operations
-            </p>
+            <p className="text-sm text-gray-500 mt-1">{r.subtitle}</p>
           </div>
 
           <div className="flex items-center gap-2">
@@ -201,7 +203,7 @@ export function AdminReports() {
               className="gap-2"
             >
               <Filter className="w-4 h-4" />
-              Filters
+              {r.filtersBtn}
               {hasActiveFilters && (
                 <Badge variant="default" className="ml-1 bg-primary text-white text-xs px-1.5 py-0">
                   {Object.values(filters).filter(Boolean).length}
@@ -210,7 +212,7 @@ export function AdminReports() {
             </Button>
             <Button variant="outline" size="sm" onClick={fetchData} className="gap-2">
               <RefreshCw className="w-4 h-4" />
-              Refresh
+              {r.refreshBtn}
             </Button>
           </div>
         </div>
@@ -233,12 +235,12 @@ export function AdminReports() {
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-semibold flex items-center gap-2">
                   <Filter className="w-4 h-4 text-primary" />
-                  Report Filters
+                  {r.filterTitle}
                 </CardTitle>
                 {hasActiveFilters && (
                   <Button variant="ghost" size="sm" onClick={clearFilters} className="text-xs text-gray-500 gap-1">
                     <X className="w-3 h-3" />
-                    Clear All
+                    {r.clearAll}
                   </Button>
                 )}
               </div>
@@ -247,7 +249,7 @@ export function AdminReports() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                 {/* Date Range */}
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-gray-600">Start Date</Label>
+                  <Label className="text-xs font-medium text-gray-600">{r.startDate}</Label>
                   <div className="relative">
                     <Calendar className="absolute left-2.5 top-2.5 w-4 h-4 text-gray-400" />
                     <Input
@@ -259,7 +261,7 @@ export function AdminReports() {
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-gray-600">End Date</Label>
+                  <Label className="text-xs font-medium text-gray-600">{r.endDate}</Label>
                   <div className="relative">
                     <Calendar className="absolute left-2.5 top-2.5 w-4 h-4 text-gray-400" />
                     <Input
@@ -273,42 +275,42 @@ export function AdminReports() {
 
                 {/* Station Filter */}
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-gray-600">Station</Label>
+                  <Label className="text-xs font-medium text-gray-600">{r.stationLabel}</Label>
                   <SearchableSelect
                     value={filters.stationId || ''}
                     onChange={(val) => setFilters((f) => ({ ...f, stationId: val }))}
                     options={stations.map((s) => ({ value: s._id, label: s.name, subLabel: s.province }))}
-                    placeholder="All Stations"
+                    placeholder={r.allStations}
                   />
                 </div>
 
                 {/* Status Filter */}
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-gray-600">Status</Label>
+                  <Label className="text-xs font-medium text-gray-600">{r.statusLabel}</Label>
                   <select
                     value={filters.status || ''}
                     onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}
                     className="w-full h-9 px-3 text-sm border border-gray-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary appearance-none"
                   >
-                    <option value="">All</option>
-                    <option value="completed">Completed</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="cancelled">Cancelled</option>
-                    <option value="success">Success</option>
-                    <option value="pending">Pending</option>
-                    <option value="failed">Failed</option>
+                    <option value="">{r.allStatus}</option>
+                    <option value="completed">{r.statusCompleted}</option>
+                    <option value="in_progress">{r.statusInProgress}</option>
+                    <option value="cancelled">{r.statusCancelled}</option>
+                    <option value="success">{r.statusSuccess}</option>
+                    <option value="pending">{r.statusPending}</option>
+                    <option value="failed">{r.statusFailed}</option>
                   </select>
                 </div>
 
                 {/* Provider Filter */}
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-gray-600">Provider</Label>
+                  <Label className="text-xs font-medium text-gray-600">{r.providerLabel}</Label>
                   <select
                     value={filters.provider || ''}
                     onChange={(e) => setFilters((f) => ({ ...f, provider: e.target.value }))}
                     className="w-full h-9 px-3 text-sm border border-gray-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary appearance-none"
                   >
-                    <option value="">All Providers</option>
+                    <option value="">{r.allProviders}</option>
                     <option value="mtn_momo">MTN MoMo</option>
                     <option value="airtel_money">Airtel Money</option>
                     <option value="cash">Cash</option>
@@ -317,23 +319,23 @@ export function AdminReports() {
 
                 {/* Rider ID Filter */}
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-gray-600">Rider</Label>
+                  <Label className="text-xs font-medium text-gray-600">{r.riderLabel}</Label>
                   <SearchableSelect
                     value={filters.riderId || ''}
                     onChange={(val) => setFilters((f) => ({ ...f, riderId: val }))}
-                    options={riders.map((r) => ({ value: r._id, label: r.fullName, subLabel: r.phone }))}
-                    placeholder="Select Rider"
+                    options={riders.map((rd) => ({ value: rd._id, label: rd.fullName, subLabel: rd.phone }))}
+                    placeholder={r.selectRider}
                   />
                 </div>
 
                 {/* Technician ID Filter */}
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-gray-600">Technician</Label>
+                  <Label className="text-xs font-medium text-gray-600">{r.technicianLabel}</Label>
                   <SearchableSelect
                     value={filters.technicianId || ''}
                     onChange={(val) => setFilters((f) => ({ ...f, technicianId: val }))}
-                    options={technicians.map((t) => ({ value: t._id, label: t.fullName, subLabel: t.phone }))}
-                    placeholder="Select Technician"
+                    options={technicians.map((tc) => ({ value: tc._id, label: tc.fullName, subLabel: tc.phone }))}
+                    placeholder={r.selectTechnician}
                   />
                 </div>
               </div>
@@ -345,7 +347,7 @@ export function AdminReports() {
         {loading && (
           <div className="flex flex-col items-center justify-center py-20 text-gray-500">
             <Loader2 className="w-8 h-8 animate-spin mb-3 text-primary" />
-            <p className="text-sm">Loading available reports…</p>
+            <p className="text-sm">{r.loading}</p>
           </div>
         )}
 
@@ -389,7 +391,7 @@ export function AdminReports() {
                     {needsStationFilter(report.type) && !filters.stationId && (
                       <div className="mt-3 flex items-center gap-1.5 text-xs text-amber-600 bg-amber-50 px-2.5 py-1.5 rounded-md">
                         <MapPin className="w-3 h-3" />
-                        <span>Select a station in filters for best results</span>
+                        <span>{r.stationHint}</span>
                       </div>
                     )}
 
@@ -404,12 +406,12 @@ export function AdminReports() {
                         {isGenerating ? (
                           <>
                             <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            Generating…
+                            {r.generating}
                           </>
                         ) : (
                           <>
                             <Download className="w-3.5 h-3.5" />
-                            Download PDF
+                            {r.downloadPdf}
                           </>
                         )}
                       </Button>
@@ -426,7 +428,7 @@ export function AdminReports() {
                         ) : (
                           <Eye className="w-3.5 h-3.5" />
                         )}
-                        Preview
+                        {r.preview}
                       </Button>
                     </div>
                   </CardContent>
@@ -440,8 +442,8 @@ export function AdminReports() {
         {!loading && reports.length === 0 && !error && (
           <div className="flex flex-col items-center justify-center py-20 text-gray-500">
             <FileText className="w-12 h-12 mb-3 text-gray-300" />
-            <p className="text-sm font-medium">No reports available</p>
-            <p className="text-xs mt-1">Contact your administrator for access.</p>
+            <p className="text-sm font-medium">{r.noReports}</p>
+            <p className="text-xs mt-1">{r.noReportsDesc}</p>
           </div>
         )}
 
@@ -449,10 +451,7 @@ export function AdminReports() {
         {!loading && reports.length > 0 && (
           <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 text-xs">
             <FileText className="w-4 h-4 shrink-0" />
-            <span>
-              Reports default to the last 30 days when no date range is selected. Maximum 5,000 records per report.
-              All report generations are logged in the audit trail.
-            </span>
+            <span>{r.footerNote}</span>
           </div>
         )}
       </div>
