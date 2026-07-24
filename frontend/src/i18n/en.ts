@@ -280,6 +280,7 @@ export const en = {
         finance: 'Finance',
         analytics: 'Analytics',
         support: 'Support',
+        messages: 'Messages',
         subscriptions: 'Subscriptions',
         reports: 'Reports',
         settings: 'Settings',

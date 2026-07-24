@@ -291,6 +291,7 @@ export const rw: Translations = {
         finance: 'Imari',
         analytics: 'Isesengura',
         support: 'Inkunga',
+        messages: 'Ubutumwa',
         subscriptions: 'Kwiyandikisha',
         reports: 'Raporo',
         settings: 'Igenamiterere',

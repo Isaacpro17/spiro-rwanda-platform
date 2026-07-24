@@ -24,6 +24,7 @@ import {
   Wallet,
   BadgeCheck,
   FileText,
+  Mail,
 } from 'lucide-react'
 import { Button } from '../ui/button'
 import { SpiroLogo } from '../ui/SpiroLogo'
@@ -90,6 +91,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           { icon: CreditCard,      label: L.adminNav.finance,        path: '/admin/finance' },
           { icon: BarChart3,       label: L.adminNav.analytics,      path: '/admin/analytics' },
           { icon: MessageSquare,   label: L.adminNav.support,        path: '/admin/support' },
+          { icon: Mail,            label: L.adminNav.messages,       path: '/admin/messages' },
           { icon: BadgeCheck,      label: L.adminNav.subscriptions,  path: '/admin/subscriptions' },
           { icon: FileText,        label: L.adminNav.reports,        path: '/admin/reports' },
           { icon: Settings,        label: L.adminNav.settings,       path: '/admin/settings' },

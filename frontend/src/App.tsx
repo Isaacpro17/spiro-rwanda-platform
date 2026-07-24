@@ -51,6 +51,7 @@ import { Batteries } from './pages/admin/Batteries'
 import { Finance } from './pages/admin/Finance'
 import { Analytics } from './pages/admin/Analytics'
 import { AdminSupport } from './pages/admin/AdminSupport'
+import { AdminMessages } from './pages/admin/AdminMessages'
 import { Subscriptions } from './pages/admin/Subscriptions'
 import { Settings } from './pages/admin/Settings'
 import { AdminReports } from './pages/admin/Reports'
@@ -324,6 +325,14 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={['admin']}>
                   <AdminSupport />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/messages"
+              element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <AdminMessages />
                 </ProtectedRoute>
               }
             />
