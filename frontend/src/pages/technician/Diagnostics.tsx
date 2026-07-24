@@ -414,26 +414,7 @@ export function Diagnostics() {
           </div>
         )}
 
-        {/* Serial search */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle>{diag.findBySerial}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex gap-2">
-              <Input
-                placeholder={diag.serialPlaceholder}
-                value={serialSearch}
-                onChange={(e) => setSerialSearch(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && searchBySerial()}
-                className="flex-1"
-              />
-              <Button variant="outline" onClick={searchBySerial} disabled={searchLoading} className="shrink-0">
-                {searchLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+
 
         <div className="grid lg:grid-cols-2 gap-6">
 
