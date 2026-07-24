@@ -17,14 +17,17 @@ interface EnrichedStation extends Station {
 // ── Geolocation ──────────────────────────────────────────────────────────────
 
 function getRiderLocation(): Promise<RiderLocation | null> {
+  const DEFAULT_LOCATION = { lat: -1.9441, lng: 30.0619 } // Kigali City Center
+
   return new Promise((resolve) => {
     if (!navigator.geolocation) {
-      resolve(null)
+      resolve(DEFAULT_LOCATION)
       return
     }
     navigator.geolocation.getCurrentPosition(
       (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => resolve(null) // user denied — proceed without geo
+      () => resolve(DEFAULT_LOCATION), // fallback if user denied or timeout
+      { timeout: 5000 }
     )
   })
 }
