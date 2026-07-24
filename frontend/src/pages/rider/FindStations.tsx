@@ -240,9 +240,14 @@ function useLeafletMap(
       .bindPopup('<strong>You are here</strong>')
   }, [riderLocation])
 
-  // Render station pins. fitToBounds=false when a route is active so the map
-  // doesn't jump away from the drawn route when search filters change.
-  const renderPins = (stations: StationCardData[], fitToBounds = true) => {
+  // Render station pins.
+  // fitToBounds=false when a route is active so the map doesn't jump away from the drawn route.
+  // onDoubleClick is called when the rider double-clicks a station marker to trigger directions.
+  const renderPins = (
+    stations: StationCardData[],
+    fitToBounds = true,
+    onDoubleClick?: (station: StationCardData) => void,
+  ) => {
     const group = markerGroupRef.current
     const map   = mapInstanceRef.current
     if (!group || !map) return
@@ -251,32 +256,68 @@ function useLeafletMap(
 
     stations.forEach((station) => {
       const [lng, lat] = station.coordinates
+      const isOpen = station.isOpen
 
+      // Larger clickable marker for easier interaction
       const dot = L.divIcon({
         className: '',
-        html: `<div style="
-          width:12px;height:12px;
-          background:${station.isOpen ? '#1D9E75' : '#9CA3AF'};
-          border:2px solid white;
-          border-radius:50%;
-          box-shadow:0 0 5px rgba(0,0,0,0.3);
-        "></div>`,
-        iconSize: [12, 12],
-        iconAnchor: [6, 6],
+        html: `
+          <div style="
+            width:16px;height:16px;
+            background:${isOpen ? '#1D9E75' : '#9CA3AF'};
+            border:2.5px solid white;
+            border-radius:50%;
+            box-shadow:0 0 8px rgba(0,0,0,0.35);
+            cursor:pointer;
+            transition:transform 0.15s ease;
+          " class="station-dot"></div>`,
+        iconSize: [16, 16],
+        iconAnchor: [8, 8],
       })
 
+      // Rich popup (single-click)
       const popup = `
-        <div style="font-family:system-ui,sans-serif;min-width:170px;line-height:1.6;">
+        <div style="font-family:system-ui,sans-serif;min-width:180px;line-height:1.65;padding:2px 0;">
           <strong style="font-size:14px;">${station.name}</strong><br/>
           <span style="font-size:12px;color:#6B7280;">${station.address}</span><br/><br/>
           <span style="color:#1D9E75;font-size:12px;">🔋 ${station.available} available</span><br/>
           ${station.distanceKm
             ? `<span style="font-size:12px;">📍 ${station.distanceKm} km · ${station.etaMin} min</span>`
             : ''}
+          <div style="margin-top:8px;padding-top:8px;border-top:1px solid #E5E7EB;font-size:11px;color:#6B7280;display:flex;align-items:center;gap:4px;">
+            <span>🖱️</span>
+            <span>Double-click the pin for directions</span>
+          </div>
         </div>
       `
 
-      L.marker([lat, lng], { icon: dot }).addTo(group).bindPopup(popup)
+      // Tooltip shown on hover — station name only
+      const tooltipHtml = `
+        <div style="font-family:system-ui,sans-serif;font-size:12px;font-weight:600;padding:2px 4px;">
+          ${station.name}
+          <div style="font-size:10px;font-weight:400;color:#6B7280;margin-top:1px;">Double-click for directions</div>
+        </div>
+      `
+
+      const marker = L.marker([lat, lng], { icon: dot })
+        .addTo(group)
+        .bindPopup(popup, { maxWidth: 220 })
+        .bindTooltip(tooltipHtml, {
+          permanent: false,    // only shows on hover
+          direction: 'top',
+          offset: [0, -10],
+          opacity: 0.97,
+          className: 'spiro-station-tooltip',
+        })
+
+      // Double-click triggers Get Directions
+      if (onDoubleClick) {
+        marker.on('dblclick', (e) => {
+          L.DomEvent.stopPropagation(e)   // don't zoom the map
+          marker.closePopup()
+          onDoubleClick(station)
+        })
+      }
     })
 
     if (fitToBounds && stations.length > 0) {
@@ -361,8 +402,9 @@ export function FindStations() {
 
   // Re-render station pins whenever stations or loading state changes.
   // When a route is active, skip fitBounds so the map stays on the route view.
+  // Always pass handleGetDirections so double-click on any pin works.
   useEffect(() => {
-    if (!isLoading) renderPins(stations, activeDirections === null)
+    if (!isLoading) renderPins(stations, activeDirections === null, handleGetDirections)
   }, [stations, isLoading, activeDirections]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleGetDirections = async (station: StationCardData) => {
@@ -644,6 +686,14 @@ export function FindStations() {
                       <span className="text-gray-600">Route</span>
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Hover / interaction hint — bottom center */}
+              {!isLoading && stations.length > 0 && (
+                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[400] bg-black/60 backdrop-blur-sm text-white text-[11px] rounded-full px-3 py-1.5 shadow-md pointer-events-none flex items-center gap-1.5">
+                  <span>🖱️</span>
+                  <span>Hover a pin to see name · Double-click for directions</span>
                 </div>
               )}
             </div>

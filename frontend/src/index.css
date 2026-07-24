@@ -231,3 +231,22 @@
   opacity: 1;
   transform: translateY(0);
 }
+
+/* ── Leaflet Custom Tooltip ───────────────────────────────────────────────── */
+.spiro-station-tooltip {
+  background-color: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  padding: 4px;
+  color: #111827;
+}
+
+.spiro-station-tooltip::before {
+  border-top-color: rgba(255, 255, 255, 0.95);
+}
+
+.station-dot:hover {
+  transform: scale(1.2);
+}
