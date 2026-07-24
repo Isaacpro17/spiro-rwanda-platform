@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { api } from '../../services/api'
+import { api } from '../../lib/api'
 import { Navbar } from '../../components/layout/Navbar'
 import { Footer } from '../../components/layout/Footer'
 import { Button } from '../../components/ui/button'
