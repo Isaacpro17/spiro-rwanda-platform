@@ -39,6 +39,8 @@ export default function PendingTransactionModal() {
     useRef<HTMLInputElement>(null),
   ]
 
+  const currentTxId = useRef<string | undefined>(undefined)
+
   // Poll for pending transaction
   useEffect(() => {
     if (!user || user.role !== 'rider') return
@@ -46,14 +48,16 @@ export default function PendingTransactionModal() {
     const poll = async () => {
       try {
         const found: PendingTransaction | null = await api.get<any>('/riders/transactions/pending') ?? null
-        if (found && found._id !== tx?._id) {
+        if (found && found._id !== currentTxId.current) {
+          currentTxId.current = found._id
           setTx(found)
           setDismissed(false)
           setPin(['', '', '', ''])
           setError('')
           setSuccess(null)
-        } else if (!found && tx) {
+        } else if (!found && currentTxId.current) {
           // Transaction disappeared (completed/expired by someone else) — close
+          currentTxId.current = undefined
           setTx(null)
         }
       } catch {
